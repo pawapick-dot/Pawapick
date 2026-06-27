@@ -1,109 +1,170 @@
 // app/page.tsx
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ShieldCheck, BrainCircuit, Wallet, Activity } from "lucide-react";
+import { ChevronRight, Plus, Target, Palette, Box } from "lucide-react";
 
 export default function Home() {
+  const [latestGames, setLatestGames] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/games/feed")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.games) {
+          // Filter for open games and grab the top 4
+          const openGames = data.games.filter((g: any) => g.status === "open").slice(0, 4);
+          setLatestGames(openGames);
+        }
+      })
+      .catch(() => console.error("Failed to fetch live feed"))
+      .finally(() => setIsLoading(false));
+  }, []);
+
   return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col pt-10 pb-16 px-4">
+    // Removed horizontal padding from the main wrapper so we can create edge-to-edge sections
+    <div className="max-w-md mx-auto min-h-screen flex flex-col pt-10 pb-16">
       
       {/* Hero Section */}
-      <div className="text-center space-y-6 pt-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 font-medium text-xs border border-blue-100">
-          <Activity size={14} />
-          Peer-to-Peer Prediction Network
-        </div>
-        
+      <div className="text-center space-y-6 pt-4 px-4">
         <h1 className="text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
-          Forecast.<br/>
-          Outsmart.<br/>
-          <span className="text-blue-600">Settle.</span>
+          Predict right.<br/>
+          <span className="text-blue-600">And earn right.</span>
         </h1>
         
-        <p className="text-base text-slate-500 font-medium max-w-xs mx-auto leading-relaxed">
-          Test your intuition against real people. Lock your prediction in a smart escrow and win instant UGX when your forecast is correct.
+        <p className="text-base text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
+          Create a challenge, lock your stake in secure escrow, and compete against real players. Winners are paid instantly after every verified match.
         </p>
 
-        {/* Hero CTA */}
-        <div className="pt-4">
-          <Link href="/feed" className="block">
-            <button className="w-full bg-blue-600 text-white font-semibold text-lg py-4 rounded-xl hover:bg-blue-700 transition-colors">
-              View Live Markets
-            </button>
+        <div className="pt-2 flex gap-3">
+          <Link href="/create" className="flex-1 bg-blue-600 text-white font-semibold py-4 rounded-xl hover:bg-blue-700 transition-colors">
+            Create Challenge
+          </Link>
+          <Link href="/feed" className="flex-1 bg-slate-100 text-slate-900 font-semibold py-4 rounded-xl border border-slate-200 hover:bg-slate-200 transition-colors">
+            View Markets
           </Link>
         </div>
       </div>
 
-      {/* Value Propositions */}
-      <div className="mt-16 space-y-3">
-        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1 mb-3">Platform Features</h3>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 flex gap-4 items-start">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-            <BrainCircuit size={20} className="text-blue-600" />
-          </div>
-          <div>
-            <h4 className="font-semibold text-slate-900 text-sm">Pure Logic, No House</h4>
-            <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-              We do not participate in the markets. You only predict against other users. The winner takes the committed pool (minus a 10% platform fee).
-            </p>
-          </div>
+      {/* Live Challenges (Edge-to-Edge) */}
+      <div className="mt-16 bg-white border-y border-slate-200 pt-8 pb-4">
+        <div className="px-4 mb-5">
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Play against real people</h2>
+          <p className="text-sm text-slate-500 font-medium mt-1">Join the challenge now.</p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 flex gap-4 items-start">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-            <Wallet size={20} className="text-emerald-600" />
+        {isLoading ? (
+          <div className="px-4 py-8 text-center text-slate-400 font-medium animate-pulse">
+            Scanning live markets...
           </div>
-          <div>
-            <h4 className="font-semibold text-slate-900 text-sm">Instant Smart Escrow</h4>
-            <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-              Funds are held securely. The moment a resolution is reached, the UGX is instantly settled into the winner's digital wallet.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* How It Works Guide */}
-      <div className="mt-12">
-        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1 mb-4">How It Works</h3>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-2">
-          <div className="space-y-1">
+        ) : latestGames.length > 0 ? (
+          <div className="divide-y divide-slate-100 border-t border-slate-100">
+            {latestGames.map((game) => (
+              <Link 
+                href={`/games/${game.id}`} 
+                key={game.id} 
+                className="flex items-center justify-between px-4 py-4 hover:bg-slate-50 transition-colors"
+              >
+                <div>
+                  <p className="font-semibold text-slate-900 capitalize text-sm">{game.gameType.replace("_", " ")}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Created by {game.creatorUsername}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="font-bold text-blue-600 text-sm">{(game.stakeAmount * 2 * 0.9).toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">To Win</p>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-300" />
+                </div>
+              </Link>
+            ))}
             
-            <div className="p-4 flex gap-4 items-center">
-              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0 border border-slate-100">1</div>
-              <div>
-                <h4 className="font-semibold text-sm text-slate-900">Create a Forecast</h4>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">Pick a scenario, lock in your prediction, and commit your UGX to the smart escrow.</p>
-              </div>
+            <Link href="/feed" className="block text-center py-4 text-sm font-bold text-blue-600 hover:bg-blue-50 transition-colors">
+              View all challenges →
+            </Link>
+          </div>
+        ) : (
+          <div className="px-4 py-6">
+            <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-8 text-center">
+              <p className="text-slate-500 text-sm font-medium mb-4">No open challenges at the moment.</p>
+              <Link href="/create" className="inline-flex items-center gap-2 bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors">
+                <Plus size={18} /> Be the first to create one
+              </Link>
             </div>
+          </div>
+        )}
+      </div>
 
-            <div className="p-4 flex gap-4 items-center border-t border-slate-100">
-              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0 border border-slate-100">2</div>
-              <div>
-                <h4 className="font-semibold text-sm text-slate-900">Wait for an Analyst</h4>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">Your market goes live. Another user matches your UGX and challenges your forecast.</p>
-              </div>
+      {/* Supported Games */}
+      <div className="mt-12 px-4">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Supported Games</h3>
+        <div className="space-y-3">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+              <Palette size={20} className="text-blue-600" />
             </div>
-
-            <div className="p-4 flex gap-4 items-center border-t border-slate-100">
-              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0 border border-slate-100">3</div>
-              <div>
-                <h4 className="font-semibold text-sm text-slate-900">Instant Settlement</h4>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">When the scenario resolves, the smart escrow automatically releases the pool to the correct predictor.</p>
-              </div>
+            <p className="font-semibold text-slate-900 text-sm">Color Pick</p>
+          </div>
+          
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+              <Box size={20} className="text-rose-600" />
             </div>
+            <p className="font-semibold text-slate-900 text-sm">Three Cup Shuffle</p>
+          </div>
 
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+              <Target size={20} className="text-emerald-600" />
+            </div>
+            <p className="font-semibold text-slate-900 text-sm">Penalty Shootout</p>
           </div>
         </div>
       </div>
 
-      {/* Security Reassurance */}
-      <div className="mt-12 bg-blue-50 border border-blue-100 rounded-2xl p-6 text-center">
-        <ShieldCheck size={24} className="mx-auto text-blue-600 mb-3" />
-        <h4 className="font-semibold text-blue-900 text-sm">Cryptographically Proven</h4>
-        <p className="text-xs text-blue-800/80 mt-2 leading-relaxed font-medium">
-          Every prediction is sealed using SHA-256 hashing. Both parties receive an immutable receipt to guarantee the outcome was unaltered and 100% fair.
-        </p>
+      {/* Why Choose Us Grid */}
+      <div className="mt-14 px-4">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-5 px-1">Why Choose Us</h3>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+            <span className="text-blue-600 font-bold text-lg mb-2 block">01</span>
+            <h4 className="font-bold text-slate-900 text-sm">No Waiting</h4>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">Games are asynchronous.</p>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+            <span className="text-blue-600 font-bold text-lg mb-2 block">02</span>
+            <h4 className="font-bold text-slate-900 text-sm">No House Betting</h4>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">You play against people.</p>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+            <span className="text-blue-600 font-bold text-lg mb-2 block">03</span>
+            <h4 className="font-bold text-slate-900 text-sm">Instant Wallet Updates</h4>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">No manual claims.</p>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+            <span className="text-blue-600 font-bold text-lg mb-2 block">04</span>
+            <h4 className="font-bold text-slate-900 text-sm">Permanent Match History</h4>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">Every game stays on your profile.</p>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+            <span className="text-blue-600 font-bold text-lg mb-2 block">05</span>
+            <h4 className="font-bold text-slate-900 text-sm">Mobile First</h4>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">Designed for speed.</p>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+            <span className="text-blue-600 font-bold text-lg mb-2 block">06</span>
+            <h4 className="font-bold text-slate-900 text-sm">Secure by Design</h4>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">Server-side verification.</p>
+          </div>
+        </div>
       </div>
 
     </div>

@@ -1,10 +1,10 @@
 // app/feed/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Filter } from "lucide-react";
+import { RefreshCw, ArrowRight, ShieldCheck, Hourglass } from "lucide-react";
 
 type FeedGame = {
   id: string;
@@ -12,55 +12,86 @@ type FeedGame = {
   gameType: string;
   stakeAmount: number;
   createdAt: string;
+  status: string;
 };
 
 export default function GlobalFeed() {
-  const router = useRouter();
   const [games, setGames] = useState<FeedGame[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [filter, setFilter] = useState<string>("all");
 
-  useEffect(() => {
-    fetch("/api/games/feed")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.games) setGames(data.games);
-      })
-      .catch(() => toast.error("Failed to load feed"))
-      .finally(() => setLoading(false));
+  const fetchGames = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setIsRefreshing(true);
+    try {
+      const res = await fetch("/api/games/feed");
+      const data = await res.json();
+      if (data.games) {
+        // Only show open games
+        setGames(data.games.filter((g: any) => g.status === "open"));
+      }
+    } catch (err) {
+      toast.error("Failed to load live markets");
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchGames();
+  }, [fetchGames]);
 
   const filteredGames = filter === "all" 
     ? games 
     : games.filter((g) => g.gameType === filter);
 
-  const filters = [
-    { id: "all", label: "All" },
-    { id: "penalty", label: "Penalty" },
-    { id: "color", label: "Colors" },
-    { id: "shuffle", label: "Shuffle" },
-    { id: "dice", label: "Dice" },
-  ];
+  // Helper to calculate time ago
+  const getTimeAgo = (dateString: string) => {
+    const diffInSeconds = Math.floor((new Date().getTime() - new Date(dateString).getTime()) / 1000);
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  };
 
   return (
-    <div className="w-full space-y-6 mt-4 pb-12">
-      {/* Header & Filter Bar */}
-      <div className="max-w-md mx-auto px-2 space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">Live Feed</h1>
-          <Filter size={20} className="text-gray-400" />
+    <div className="w-full max-w-5xl mx-auto space-y-6 mt-6 md:mt-10 pb-16">
+      
+      {/* Header & Refresh */}
+      <div className="px-4 flex items-start justify-between">
+        <div>
+          <h1 className="text-[2rem] md:text-4xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
+            {games.length > 0 ? `${games.length}+` : '0'}<br className="md:hidden" /> 
+            <span className="text-slate-900"> Live challenges</span>
+          </h1>
         </div>
+        <button 
+          onClick={() => fetchGames(true)}
+          disabled={isRefreshing}
+          className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors shrink-0 disabled:opacity-50"
+        >
+          <RefreshCw size={20} className={isRefreshing ? "animate-spin" : ""} />
+        </button>
+      </div>
 
-        {/* Mobile Swiper for Filters */}
-        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
-          {filters.map((f) => (
+      {/* Quick Filters (2x2 Grid on Mobile, Row on Desktop) */}
+      <div className="px-4 mt-6">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Quick Filter</p>
+        <div className="grid grid-cols-2 md:flex gap-2 md:gap-3">
+          {[
+            { id: "all", label: "All" },
+            { id: "shuffle", label: "Shuffle" },
+            { id: "penalty", label: "Penalty" },
+            { id: "color", label: "Color Minefield" }
+          ].map((f) => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`whitespace-nowrap px-5 py-2 rounded-full text-sm font-bold transition active:scale-95 ${
+              className={`px-4 py-3 rounded-xl text-sm font-semibold transition-colors border ${
                 filter === f.id 
-                  ? "bg-gray-900 text-white shadow-md" 
-                  : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50"
+                  ? "bg-slate-900 text-white border-slate-900" 
+                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
               {f.label}
@@ -69,52 +100,77 @@ export default function GlobalFeed() {
         </div>
       </div>
 
-      {/* Game Grid / List */}
-      <div className="px-2">
+      {/* Game Cards / Feed */}
+      <div className="mt-8 border-t border-slate-200 md:border-none md:mt-10 md:px-4">
         {loading ? (
-          <div className="max-w-md mx-auto text-center py-12">
-            <p className="text-gray-400 font-medium animate-pulse">Scanning network for challenges...</p>
+          <div className="px-4 py-12 text-center text-slate-400 font-medium animate-pulse">
+            Scanning network...
           </div>
         ) : filteredGames.length === 0 ? (
-          <div className="max-w-md mx-auto bg-white border border-gray-100 rounded-3xl p-8 text-center shadow-sm">
-            <p className="text-gray-500 font-medium">No open challenges match this filter.</p>
-            <button 
-              onClick={() => router.push("/create")} 
-              className="mt-4 bg-gray-100 text-gray-900 font-bold px-6 py-3 rounded-xl border border-gray-200 active:scale-95 transition"
-            >
-              Create One Now
-            </button>
+          <div className="px-6 py-12 text-center">
+            <p className="text-slate-500 font-medium">
+              No active challenges right now.<br/> 
+              Check back later or <Link href="/create" className="text-blue-600 font-semibold underline decoration-blue-200 underline-offset-4 hover:decoration-blue-600 transition-colors">create a challenge</Link>.
+            </p>
           </div>
         ) : (
-          /* Desktop Bento Grid (Max 4) & Mobile Stack */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 max-w-7xl mx-auto">
-            {filteredGames.map((game) => (
-              <div 
-                key={game.id} 
-                onClick={() => router.push(`/games/${game.id}`)}
-                className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm flex flex-col justify-between active:scale-[0.98] transition cursor-pointer hover:shadow-md"
-              >
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-1 rounded-md">
-                      {game.gameType.replace("_", " ")}
-                    </span>
-                    <h3 className="text-lg font-bold text-gray-900 mt-2">{game.creatorUsername}</h3>
+          /* Edge-to-Edge List on Mobile / Grid on Desktop */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 md:gap-4">
+            {filteredGames.map((game) => {
+              const prize = game.stakeAmount * 2 * 0.9;
+              
+              return (
+                <Link 
+                  href={`/games/${game.id}`}
+                  key={game.id} 
+                  className="block bg-white border-b border-slate-200 md:border md:rounded-2xl p-5 hover:bg-slate-50 transition-colors group"
+                >
+                  {/* Top: Name & Time */}
+                  <div className="flex justify-between items-start mb-5">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-base capitalize">{game.gameType.replace("_", " ")}</h3>
+                      <p className="text-xs text-slate-500 mt-1">Created by <span className="font-semibold text-slate-700">{game.creatorUsername}</span></p>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs font-semibold text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                      <Hourglass size={12} />
+                      {getTimeAgo(game.createdAt)}
+                    </div>
                   </div>
-                </div>
-                
-                <div className="border-t border-gray-50 pt-4 flex justify-between items-end">
-                  <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Stake Amount</span>
-                  <div className="text-right">
-                    <p className="text-2xl font-black text-gray-900">{game.stakeAmount.toLocaleString()}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">UGX</p>
+
+                  {/* Middle: Structured Credit-Card Style Stats */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex justify-between items-center mb-5">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Stake</p>
+                      <p className="font-extrabold text-slate-900 text-lg">{game.stakeAmount.toLocaleString()}</p>
+                    </div>
+                    <div className="w-px h-8 bg-slate-200"></div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-0.5">Prize</p>
+                      <p className="font-extrabold text-blue-600 text-lg">{prize.toLocaleString()}</p>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+
+                  {/* Bottom: Action Link */}
+                  <div className="flex justify-between items-center text-sm font-semibold text-blue-600">
+                    <span>View details</span>
+                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Footer Markers */}
+      <div className="text-center mt-12 pb-6">
+        <div className="flex items-center justify-center gap-1.5 text-slate-400 mb-1.5">
+          <ShieldCheck size={16} />
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-400">SHA 256 Verified</span>
+        </div>
+        <p className="text-xs font-medium text-slate-400">Every game counts</p>
+      </div>
+
     </div>
   );
 }

@@ -1,15 +1,23 @@
-// app/games/[gameId]/page.tsx
+// app/play/[gameId]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Share2, CheckCircle2, ArrowDown, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/context/AuthContext";
+import { ArrowLeft, Info, CheckCircle2, XCircle, Home, RotateCcw } from "lucide-react";
 
-export default function GameDetails({ params }: { params: { gameId: string } }) {
+type GameState = "loading" | "idle" | "confirming" | "locked" | "revealing" | "result";
+
+export default function PlayGame({ params }: { params: { gameId: string } }) {
   const router = useRouter();
+  const { user, loading: authLoading, openAuthModal } = useAuth();
+
   const [game, setGame] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState<any>(null);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [gameState, setGameState] = useState<GameState>("loading");
 
   useEffect(() => {
     fetch(`/api/games/feed`)
@@ -17,204 +25,344 @@ export default function GameDetails({ params }: { params: { gameId: string } }) 
       .then((data) => {
         const found = data.games?.find((g: any) => g.id === params.gameId);
         setGame(found);
-      })
-      .catch(() => toast.error("Failed to load match details"))
-      .finally(() => setLoading(false));
+        setGameState("idle");
+      });
   }, [params.gameId]);
 
-  if (loading || !game) {
+  const handleSelect = (option: string) => {
+    if (gameState !== "idle") return;
+    // Mobile haptic feedback (if supported)
+    if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate(10);
+    }
+    setSelectedOption(option);
+    setGameState("confirming");
+  };
+
+  const handleConfirm = async () => {
+    if (!user) return openAuthModal();
+    if (game.creatorId === user.uid) return toast.error("You cannot play your own game!");
+    
+    // Cinematic Lock
+    setGameState("locked");
+
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/games/resolve", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ gameId: params.gameId, guess: selectedOption }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      
+      setResult(data);
+      
+      // Cinematic pause before reveal
+      setTimeout(() => {
+        setGameState("revealing");
+        // Wait for animation to finish before showing result screen
+        setTimeout(() => {
+          if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+             window.navigator.vibrate(data.outcome === "player_b_won" ? [50, 50, 100] : 50);
+          }
+          setGameState("result");
+        }, 1500); 
+      }, 1000);
+
+    } catch (error: any) {
+      toast.error(error.message || "Something went wrong.");
+      setGameState("idle");
+      setSelectedOption(null);
+    }
+  };
+
+  if (authLoading || gameState === "loading" || !game) {
     return (
-      <div className="w-full min-h-screen flex items-center justify-center">
-        <p className="text-slate-400 font-medium animate-pulse">Loading market data...</p>
+      <div className="w-full min-h-screen bg-slate-50 flex items-center justify-center">
+        <p className="text-slate-400 font-medium animate-pulse">Loading Arena...</p>
       </div>
     );
   }
 
-  const totalPool = game.stakeAmount * 2;
-  const potentialPayout = totalPool - (totalPool * 0.10);
-
-  // Dynamic Theme & Content based on Game Type
-  const getGameConfig = (type: string) => {
-    switch (type) {
-      case "penalty":
-        return {
-          title: "Penalty Shootout",
-          desc: "Guess where the keeper will dive.",
-          bg: "bg-emerald-50 border-emerald-100",
-          text: "text-emerald-900",
-        };
-      case "shuffle":
-        return {
-          title: "Three Cup Shuffle",
-          desc: "Find the hidden prize under the cups.",
-          bg: "bg-orange-50 border-orange-100",
-          text: "text-orange-900",
-        };
-      case "color":
-      default:
-        return {
-          title: "Color Minefield",
-          desc: "Pick the safe tile and avoid the trap.",
-          bg: "bg-blue-50 border-blue-100",
-          text: "text-blue-900",
-        };
-    }
-  };
-
-  const config = getGameConfig(game.gameType);
-
-  // Time formatting
-  const getTimeAgo = (dateString: string) => {
-    const diffInSeconds = Math.floor((new Date().getTime() - new Date(dateString).getTime()) / 1000);
-    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return `${Math.floor(diffInSeconds / 86400)}d ago`;
-  };
-
-  // Native Web Share API for sharing
-  const handleShare = async () => {
-    const shareData = {
-      title: `${game.creatorUsername}'s ${config.title} Challenge`,
-      text: `Can you outsmart ${game.creatorUsername} in ${config.title}? Accept the challenge to win ${potentialPayout.toLocaleString()} UGX instantly!`,
-      url: window.location.href,
-    };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        toast.success("Link copied to clipboard!");
-      }
-    } catch (err) {
-      console.log("Share cancelled or failed.");
-    }
-  };
+  const potentialPrize = game.stakeAmount * 2 * 0.9;
+  const isWon = result?.outcome === "player_b_won";
 
   return (
-    // Note: pb-28 ensures content isn't hidden behind the fixed bottom bar
-    <div className="w-full min-h-screen bg-white pb-28 flex flex-col">
+    <div className="w-full min-h-screen bg-slate-50 flex flex-col relative overflow-hidden">
       
-      {/* Top Navigation */}
-      <div className="flex items-center justify-between px-4 py-4 w-full max-w-2xl mx-auto">
+      {/* 1. HEADER */}
+      <header className="w-full px-4 py-5 flex items-center justify-between z-10 relative">
         <button 
-          onClick={() => router.push("/feed")} 
-          className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-colors font-semibold text-sm bg-slate-50 px-3 py-2 rounded-lg"
+          onClick={() => router.push("/feed")}
+          disabled={gameState !== "idle" && gameState !== "confirming"}
+          className={`flex items-center gap-1 font-semibold text-sm transition-colors ${gameState === "idle" || gameState === "confirming" ? "text-slate-500 hover:text-slate-900" : "text-slate-300 cursor-not-allowed"}`}
         >
-          <ArrowLeft size={16} /> Back
+          <ArrowLeft size={18} /> {game.gameType.replace("_", " ")}
         </button>
-        <button 
-          onClick={handleShare}
-          className="flex items-center gap-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors font-semibold text-sm px-3 py-2 rounded-lg"
-        >
-          Share <Share2 size={16} />
-        </button>
-      </div>
-
-      {/* Edge-to-Edge Hero Section */}
-      <div className={`w-full py-10 border-y ${config.bg}`}>
-        <div className="max-w-2xl mx-auto px-4 text-center">
-          <h1 className={`text-3xl font-extrabold tracking-tight capitalize ${config.text}`}>
-            {config.title}
-          </h1>
-          <p className="text-slate-600 font-medium mt-2">{config.desc}</p>
-          <div className="inline-block mt-4 bg-white/60 backdrop-blur-sm border border-white/50 px-3 py-1.5 rounded-md">
-            <p className="text-xs font-semibold text-slate-600">
-              Challenge started: {getTimeAgo(game.createdAt)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Wrapper */}
-      <div className="max-w-2xl mx-auto w-full px-4 space-y-8 mt-8">
         
-        {/* Financials & Creator */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
-            <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">Potential Prize</p>
-            <p className="text-2xl font-extrabold text-blue-700">{potentialPayout.toLocaleString()} <span className="text-sm font-semibold">UGX</span></p>
-          </div>
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Stake Required</p>
-            <p className="text-2xl font-extrabold text-slate-900">{game.stakeAmount.toLocaleString()} <span className="text-sm font-semibold">UGX</span></p>
-          </div>
+        {/* Subtle timer placeholder as requested in design */}
+        <div className="text-slate-400 font-medium text-sm flex items-center gap-1.5">
+           vs {game.creatorUsername}
         </div>
+      </header>
 
-        <div className="flex items-center gap-2 px-1">
-          <p className="text-sm text-slate-500 font-medium">Created by:</p>
-          <p className="text-base font-bold text-slate-900">{game.creatorUsername}</p>
-        </div>
+      {/* 2. HERO AREA (The Game Board) */}
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-32 w-full max-w-lg mx-auto z-10">
+        
+        {/* PENALTY SHOOTOUT */}
+        {game.gameType === "penalty" && (
+          <div className="w-full flex flex-col items-center justify-center space-y-12">
+            <div className="relative w-full max-w-[280px] aspect-video flex flex-col items-center justify-end border-b-2 border-slate-200 pb-2">
+              {/* Goal Net */}
+              <div className="absolute top-0 w-4/5 h-full border-t-4 border-l-4 border-r-4 border-slate-300 rounded-t-lg opacity-50">
+                {/* Net Pattern */}
+                <div className="w-full h-full" style={{ backgroundImage: 'linear-gradient(45deg, #cbd5e1 25%, transparent 25%, transparent 75%, #cbd5e1 75%, #cbd5e1), linear-gradient(45deg, #cbd5e1 25%, transparent 25%, transparent 75%, #cbd5e1 75%, #cbd5e1)', backgroundSize: '10px 10px', backgroundPosition: '0 0, 5px 5px', opacity: 0.3 }}></div>
+              </div>
 
-        {/* Trust Card */}
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck size={20} className="text-slate-900" />
-            <h3 className="font-bold text-slate-900">Protected by Pawa Pick</h3>
+              {/* Keeper Emoji */}
+              <motion.div 
+                initial={{ x: 0, y: 0 }}
+                animate={
+                  gameState === "revealing" || gameState === "result"
+                    ? { 
+                        x: result.creatorChoice === "left" ? -80 : result.creatorChoice === "right" ? 80 : 0,
+                        y: result.creatorChoice === "center" ? -20 : -10,
+                        rotate: result.creatorChoice === "left" ? -45 : result.creatorChoice === "right" ? 45 : 0 
+                      } 
+                    : { y: [0, -5, 0] }
+                }
+                transition={gameState === "idle" || gameState === "confirming" ? { repeat: Infinity, duration: 1.5 } : { type: "spring", stiffness: 100 }}
+                className="text-6xl z-10"
+              >
+                🧍
+              </motion.div>
+
+              {/* Ball Emoji */}
+              <motion.div
+                initial={{ y: 0, x: 0, scale: 1 }}
+                animate={
+                  (gameState === "revealing" || gameState === "result") && selectedOption
+                    ? { 
+                        y: -80, 
+                        x: selectedOption === "left" ? -80 : selectedOption === "right" ? 80 : 0,
+                        scale: 0.7 
+                      }
+                    : { y: 0, x: 0 }
+                }
+                transition={{ type: "spring", stiffness: 90 }}
+                className="text-4xl absolute -bottom-6 z-20"
+              >
+                ⚽
+              </motion.div>
+            </div>
+
+            <p className="text-slate-500 font-medium text-lg">Where will the keeper dive?</p>
+
+            {/* Controls */}
+            <div className={`grid grid-cols-3 gap-6 w-full max-w-[280px] transition-opacity ${(gameState === "locked" || gameState === "revealing" || gameState === "result") ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+              {["left", "center", "right"].map((opt) => (
+                <button 
+                  key={opt}
+                  onClick={() => handleSelect(opt)}
+                  className={`aspect-square rounded-full flex flex-col items-center justify-center transition-all ${selectedOption === opt ? "bg-blue-100 border-2 border-blue-500 text-blue-700 shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"}`}
+                >
+                  <span className="text-xl">{opt === "left" ? "←" : opt === "right" ? "→" : "↑"}</span>
+                  <span className="text-xs font-semibold uppercase mt-1">{opt}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 text-slate-600">
-              <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-              <p className="text-sm font-medium">Stake already secured in escrow</p>
-            </div>
-            <div className="flex items-center gap-3 text-slate-600">
-              <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-              <p className="text-sm font-medium">Instant payout upon winning</p>
-            </div>
-            <div className="flex items-center gap-3 text-slate-600">
-              <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-              <p className="text-sm font-medium">Match outcome is cryptographically verifiable</p>
-            </div>
-          </div>
-          <button className="mt-5 text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1">
-            Learn More <ArrowLeft size={14} className="rotate-180" />
-          </button>
-        </div>
+        )}
 
-        {/* How It Works (Stepper) */}
-        <div className="px-1 pt-2">
-          <h3 className="font-bold text-slate-900 mb-6">How it works</h3>
-          
-          <div className="flex flex-col items-center text-center space-y-3">
-            <div className="w-full bg-slate-50 border border-slate-200 rounded-xl py-4 font-semibold text-sm text-slate-700 flex items-center justify-center gap-3">
-              <span className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-xs">1</span>
-              Accept Challenge
-            </div>
+        {/* 3-CUP SHUFFLE */}
+        {game.gameType === "shuffle" && (
+          <div className="w-full flex flex-col items-center justify-center space-y-16 mt-10">
             
-            <ArrowDown size={20} className="text-slate-300" />
+            <div className="flex gap-6 relative">
+              {["cup_1", "cup_2", "cup_3"].map((opt, i) => (
+                <div key={opt} className="relative flex flex-col items-center">
+                  {/* Coin (Revealed under chosen or correct cup) */}
+                  {(gameState === "revealing" || gameState === "result") && result?.creatorChoice === opt && (
+                    <div className="absolute bottom-2 text-3xl z-0">
+                      🪙
+                    </div>
+                  )}
 
-            <div className="w-full bg-slate-50 border border-slate-200 rounded-xl py-4 font-semibold text-sm text-slate-700 flex items-center justify-center gap-3">
-              <span className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-xs">2</span>
-              Make Your Choice
+                  {/* Cup */}
+                  <motion.button
+                    onClick={() => handleSelect(opt)}
+                    animate={
+                      (gameState === "revealing" || gameState === "result") && (result?.creatorChoice === opt || selectedOption === opt)
+                        ? { y: -50 }
+                        : { y: 0 }
+                    }
+                    transition={{ type: "spring", stiffness: 100 }}
+                    className={`text-7xl relative z-10 transition-all ${selectedOption === opt && gameState === "confirming" ? "drop-shadow-[0_0_15px_rgba(37,99,235,0.4)] scale-110" : ""}`}
+                  >
+                    🥤
+                  </motion.button>
+                </div>
+              ))}
             </div>
 
-            <ArrowDown size={20} className="text-slate-300" />
-
-            <div className="w-full bg-blue-50 border border-blue-100 rounded-xl py-4 font-semibold text-sm text-blue-700 flex items-center justify-center gap-3">
-              <span className="w-6 h-6 rounded-full bg-white border border-blue-100 flex items-center justify-center text-xs">3</span>
-              Winner Gets Paid
-            </div>
+            <p className="text-slate-500 font-medium text-lg">Where is the coin?</p>
           </div>
-        </div>
+        )}
 
+        {/* COLOR CARDS */}
+        {game.gameType === "color" && (
+          <div className="w-full flex flex-col items-center justify-center space-y-12">
+            
+            <div className="flex gap-8">
+              {["blue", "yellow"].map((color) => (
+                <motion.button
+                  key={color}
+                  onClick={() => handleSelect(color)}
+                  animate={
+                    (gameState === "revealing" || gameState === "result") && selectedOption === color
+                      ? { rotateY: 180, scale: 1.05 }
+                      : { rotateY: 0, scale: selectedOption === color && gameState === "confirming" ? 1.05 : 1 }
+                  }
+                  transition={{ type: "spring", stiffness: 80 }}
+                  className={`w-32 h-40 rounded-2xl relative shadow-md transition-shadow ${selectedOption === color && gameState === "confirming" ? "shadow-[0_0_20px_rgba(37,99,235,0.4)]" : ""} ${color === "blue" ? "bg-blue-500" : "bg-yellow-400"}`}
+                  style={{ transformStyle: "preserve-3d" }}
+                >
+                  {/* Card Back (Result) */}
+                  {(gameState === "revealing" || gameState === "result") && selectedOption === color && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white rounded-2xl shadow-inner border border-slate-100" style={{ transform: "rotateY(180deg)", backfaceVisibility: "hidden" }}>
+                       {result?.outcome === "player_b_won" ? (
+                         <span className="text-5xl">🎉</span>
+                       ) : (
+                         <span className="text-5xl">💥</span>
+                       )}
+                    </div>
+                  )}
+                </motion.button>
+              ))}
+            </div>
+
+            <p className="text-slate-500 font-medium text-lg">Pick the safe card</p>
+          </div>
+        )}
+      </main>
+
+      {/* 3. BOTTOM ACTION AREA (FIXED TO BOTTOM) */}
+      <div className="fixed bottom-0 left-0 right-0 w-full z-40 p-4 pb-6 md:pb-8 pointer-events-none">
+        <div className="max-w-lg mx-auto w-full pointer-events-auto">
+          
+          <AnimatePresence mode="wait">
+            
+            {/* CONFIRMATION STATE */}
+            {gameState === "confirming" && (
+              <motion.div 
+                key="confirming"
+                initial={{ y: 50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 50, opacity: 0 }}
+                className="bg-white rounded-2xl p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] border border-slate-100"
+              >
+                <p className="text-center text-sm font-medium text-slate-500 mb-4">
+                  You selected <span className="font-bold text-slate-900 uppercase">{selectedOption?.replace("_", " ")}</span>
+                </p>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => { setSelectedOption(null); setGameState("idle"); }}
+                    className="flex-1 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                  >
+                    Change
+                  </button>
+                  <button 
+                    onClick={handleConfirm}
+                    className="flex-1 py-3.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* LOCKED / REVEALING STATE */}
+            {(gameState === "locked" || gameState === "revealing") && (
+              <motion.div 
+                key="locked"
+                initial={{ y: 50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 50, opacity: 0 }}
+                className="bg-white rounded-2xl p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] border border-slate-100 text-center"
+              >
+                <div className="w-8 h-8 mx-auto border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+                <p className="font-bold text-slate-900">
+                  {gameState === "locked" ? "Choice Locked ✓" : "Checking..."}
+                </p>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
       </div>
 
-      {/* Floating Action Bar (Fixed to Bottom) */}
-      <div className="fixed bottom-0 left-0 right-0 w-full bg-white border-t border-slate-200 p-4 pb-safe z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div>
-            <p className="font-bold text-slate-900">Accept challenge</p>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">{game.stakeAmount.toLocaleString()} UGX stake</p>
-          </div>
-          <button 
-            onClick={() => router.push(`/play/${game.id}`)}
-            className="bg-blue-600 text-white px-8 py-3.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-sm active:scale-95"
+      {/* 4. ABSOLUTE RESULT SCREEN OVERLAY */}
+      <AnimatePresence>
+        {gameState === "result" && (
+          <motion.div 
+            initial={{ opacity: 0, y: "100%" }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", damping: 20, stiffness: 100 }}
+            className={`absolute inset-0 z-50 flex flex-col items-center justify-center p-6 ${isWon ? "bg-emerald-50" : "bg-slate-50"}`}
           >
-            ACCEPT
-          </button>
-        </div>
-      </div>
+            <div className="text-center space-y-6 max-w-sm w-full">
+              
+              <div className="text-6xl mb-6">
+                {isWon ? "🎉" : "😔"}
+              </div>
+
+              <h1 className={`text-4xl font-extrabold tracking-tight ${isWon ? "text-emerald-900" : "text-slate-900"}`}>
+                {isWon ? "You Won!" : "Better Luck Next Time"}
+              </h1>
+
+              <div className={`py-4 rounded-2xl ${isWon ? "bg-emerald-100/50" : "bg-slate-100"}`}>
+                <p className={`text-3xl font-black ${isWon ? "text-emerald-600" : "text-slate-500"}`}>
+                  {isWon ? "+" : "-"}{game.stakeAmount.toLocaleString()} UGX
+                </p>
+                {isWon && <p className="text-sm font-semibold text-emerald-700 mt-2">Wallet Updated</p>}
+              </div>
+
+              <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm mb-8 text-sm font-medium text-slate-600 flex justify-between items-center">
+                <span>Creator's choice was:</span>
+                <span className="font-bold text-slate-900 uppercase px-3 py-1 bg-slate-100 rounded-lg">{result?.creatorChoice.replace("_", " ")}</span>
+              </div>
+
+              <div className="space-y-3 pt-4">
+                <button 
+                  onClick={() => router.push("/feed")}
+                  className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition shadow-sm"
+                >
+                  <RotateCcw size={18} /> Play Again
+                </button>
+                <button 
+                  onClick={() => router.push("/dashboard")}
+                  className="w-full flex items-center justify-center gap-2 bg-white text-slate-700 font-bold py-4 rounded-xl border border-slate-200 hover:bg-slate-50 transition"
+                >
+                  <Home size={18} /> Home
+                </button>
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Subtle Info Button (Hidden during animation/result) */}
+      {gameState === "idle" && (
+        <button className="absolute bottom-6 left-6 text-slate-400 hover:text-slate-600 transition p-2 bg-white rounded-full shadow-sm border border-slate-100 z-10">
+          <Info size={18} />
+        </button>
+      )}
 
     </div>
   );

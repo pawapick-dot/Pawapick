@@ -10,22 +10,23 @@ export async function POST(request: Request) {
     const uid = await verifyToken(request);
     if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { gameType, stakeAmount, creatorChoice } = await request.json();
+    // FIX: Destructure creatorName from the incoming request body
+    const { gameType, stakeAmount, creatorChoice, creatorName } = await request.json();
 
     if (!gameType || !stakeAmount || !creatorChoice) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const userRef = db.collection("users").doc(uid);
-    
+
     // 2. Execute Atomic Creation
     const result = await db.runTransaction(async (transaction) => {
       const userDoc = await transaction.get(userRef);
       const userData = userDoc.data();
       const balance = userData?.walletBalance || 0;
-      
-      // Use the displayName if they have one, otherwise fallback to a default
-      const username = userData?.displayName || "Agent";
+
+      // FIX: Prioritize the real name sent from frontend Auth, fallback to Firestore, then "Challenger"
+      const username = creatorName || userData?.displayName || "Challenger";
 
       if (balance < stakeAmount) {
         throw new Error("Insufficient funds. Please top up your wallet.");

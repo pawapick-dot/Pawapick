@@ -23,7 +23,7 @@ type RecentGame = {
   stakeAmount: number;
   payout: number;
   won: boolean;
-  choice: string;
+  status: string;
 };
 
 export default function Dashboard() {
@@ -83,7 +83,6 @@ export default function Dashboard() {
           localStorage.setItem(`lastLogin_${user.uid}`, today.getTime().toString());
           localStorage.setItem(`streak_${user.uid}`, currentStreak.toString());
         }
-        // If diffDays === 0, it's the same day, so we do nothing and keep the current streak
       } else {
         // Very first time logging in
         currentStreak = 1;
@@ -95,7 +94,7 @@ export default function Dashboard() {
     }
   }, [user]);
 
-  // Trigger data fetch on auth state change
+  // 3. Trigger data fetch on auth state change
   useEffect(() => {
     if (!authLoading && user) fetchDashboardStats();
     else if (!authLoading && !user) setIsFetchingStats(false);
@@ -136,16 +135,16 @@ export default function Dashboard() {
     );
   }
 
-  // Filter games the user created (where the opponent is marked as "Challenger" by the API)
-  const myCreatedChallenges = stats.recentGames.filter(g => g.opponent === "Challenger");
+  // Filter for active/open challenges the user created
+  const myActiveChallenges = stats.recentGames.filter(g => g.status === "open");
 
   return (
     <div className="w-full max-w-2xl mx-auto mt-6 md:mt-10 pb-16 overflow-hidden md:overflow-visible">
 
-      {/* Greeting (Breaks to 2 lines on mobile, stays 1 line on desktop) */}
+      {/* Greeting (Breaks to 2 lines on mobile, stays 1 line on desktop. Name in blue) */}
       <div className="px-4 md:px-0">
         <h1 className="text-[1.75rem] md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-          Welcome back,<br className="md:hidden" /> {user.displayName?.split(" ")[0] || "Analyst"}!
+          Welcome back,<br className="md:hidden" /> <span className="text-blue-600">{user.displayName?.split(" ")[0] || "Analyst"}</span>!
         </h1>
         <p className="text-sm text-slate-500 font-medium mt-1">
           Here is what's happening with your account today.
@@ -236,20 +235,28 @@ export default function Dashboard() {
               </div>
             ) : (
               stats.recentGames.slice(0, 5).map((game) => (
-                <Link href={`/verify/${game.id}`} key={game.id} className="flex items-center justify-between p-4 md:p-5 hover:bg-slate-50 transition-colors block">
+                <Link 
+                  href={game.status === "open" ? `/games/${game.id}` : `/verify/${game.id}`} 
+                  key={game.id} 
+                  className="flex items-center justify-between p-4 md:p-5 hover:bg-slate-50 transition-colors block"
+                >
                   <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${game.won ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                    <div className={`w-2 h-2 rounded-full ${game.status === "open" ? 'bg-blue-500' : game.won ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
                     <div>
                       <p className="font-semibold text-sm text-slate-900 capitalize">{game.gameType.replace("_", " ")}</p>
                       <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                        vs. {game.opponent}
+                        {game.status === "open" ? "Awaiting Challenger" : `vs. ${game.opponent}`}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`font-bold text-sm ${game.won ? 'text-emerald-600' : 'text-slate-900'}`}>
-                      {game.payout > 0 ? '+' : ''}{game.payout.toLocaleString()} <span className="text-[10px] text-slate-400 font-medium">UGX</span>
-                    </p>
+                    {game.status === "open" ? (
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pending</span>
+                    ) : (
+                      <p className={`font-bold text-sm ${game.won ? 'text-emerald-600' : 'text-slate-900'}`}>
+                        {game.payout > 0 ? '+' : ''}{game.payout.toLocaleString()} <span className="text-[10px] text-slate-400 font-medium">UGX</span>
+                      </p>
+                    )}
                   </div>
                 </Link>
               ))
@@ -262,7 +269,7 @@ export default function Dashboard() {
       <div className="mt-10 px-4 md:px-0">
         <h3 className="text-sm font-bold text-slate-900 mb-4">Challenges you have created</h3>
         
-        {myCreatedChallenges.length === 0 ? (
+        {myActiveChallenges.length === 0 ? (
           <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-6 md:p-8 text-center shadow-sm">
             <p className="text-slate-500 text-sm font-medium mb-4">You don't have any active challenges.</p>
             <Link href="/create" className="inline-block bg-white border border-slate-200 text-slate-900 font-semibold text-sm px-5 py-2.5 rounded-lg hover:border-slate-300 hover:shadow-sm transition-all shadow-sm">
@@ -271,14 +278,14 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="space-y-2 md:space-y-3">
-            {myCreatedChallenges.map((game) => (
+            {myActiveChallenges.map((game) => (
               <div key={game.id} className="bg-white border border-slate-200 rounded-xl p-4 md:p-5 flex items-center justify-between shadow-sm">
                 <div>
                   <p className="font-semibold text-sm text-slate-900 capitalize">{game.gameType.replace("_", " ")}</p>
                   <p className="text-xs text-slate-500 mt-0.5">Stake: {game.stakeAmount.toLocaleString()} UGX</p>
                 </div>
-                <Link href={`/verify/${game.id}`} className="text-blue-600 text-xs font-bold bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
-                  View Receipt
+                <Link href={`/games/${game.id}`} className="text-blue-600 text-xs font-bold bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                  View Market
                 </Link>
               </div>
             ))}

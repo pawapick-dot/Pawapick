@@ -1,9 +1,12 @@
+// app/layout.tsx
 import { Toaster } from "sonner";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import "./globals.css";
 
 export const metadata = {
-  title: "Pawa Pick",
-  description: "Set the trap. Take the pick.",
+  title: "Pawa Pick | Asynchronous 1v1 Escrow",
+  description: "Set the trap. Take the pick. The fastest P2P betting network in East Africa.",
 };
 
 export default function RootLayout({
@@ -13,10 +16,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <main className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <body className="flex flex-col min-h-screen bg-[#f9fafb]">
+        {/* Global Navigation */}
+        <Navbar />
+
+        {/* Main Content Area */}
+        <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {children}
         </main>
+
+        {/* Global Footer */}
+        <Footer />
+
+        {/* Global Toast Notifications */}
         <Toaster 
           position="top-center" 
           toastOptions={{

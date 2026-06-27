@@ -37,10 +37,9 @@ export default function Dashboard() {
     recentGames: [] as RecentGame[]
   });
   const [isFetchingStats, setIsFetchingStats] = useState(true);
+  const [loginStreak, setLoginStreak] = useState(0);
 
-  // Simulated Streak (To be connected to backend later)
-  const loginStreak = 3; 
-
+  // 1. Fetch Backend Stats
   const fetchDashboardStats = useCallback(async () => {
     if (!user) return;
     try {
@@ -59,11 +58,50 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  // 2. Calculate Real Daily Login Streak
+  useEffect(() => {
+    if (user) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Normalize to midnight
+      
+      const lastLoginStr = localStorage.getItem(`lastLogin_${user.uid}`);
+      let currentStreak = parseInt(localStorage.getItem(`streak_${user.uid}`) || "0", 10);
+
+      if (lastLoginStr) {
+        const lastLoginDate = new Date(parseInt(lastLoginStr, 10));
+        const diffTime = today.getTime() - lastLoginDate.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          // Logged in exactly the next day -> Increment
+          currentStreak += 1;
+          localStorage.setItem(`lastLogin_${user.uid}`, today.getTime().toString());
+          localStorage.setItem(`streak_${user.uid}`, currentStreak.toString());
+        } else if (diffDays > 1) {
+          // Missed a day -> Reset
+          currentStreak = 1;
+          localStorage.setItem(`lastLogin_${user.uid}`, today.getTime().toString());
+          localStorage.setItem(`streak_${user.uid}`, currentStreak.toString());
+        }
+        // If diffDays === 0, it's the same day, so we do nothing and keep the current streak
+      } else {
+        // Very first time logging in
+        currentStreak = 1;
+        localStorage.setItem(`lastLogin_${user.uid}`, today.getTime().toString());
+        localStorage.setItem(`streak_${user.uid}`, currentStreak.toString());
+      }
+
+      setLoginStreak(currentStreak);
+    }
+  }, [user]);
+
+  // Trigger data fetch on auth state change
   useEffect(() => {
     if (!authLoading && user) fetchDashboardStats();
     else if (!authLoading && !user) setIsFetchingStats(false);
   }, [user, authLoading, fetchDashboardStats]);
 
+  // UI Loading State
   if (authLoading || (isFetchingStats && user)) {
     return (
       <div className="w-full max-w-2xl mx-auto p-4 animate-pulse space-y-8 mt-6">
@@ -77,6 +115,7 @@ export default function Dashboard() {
     );
   }
 
+  // UI Locked State
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-4">
@@ -89,7 +128,7 @@ export default function Dashboard() {
         </p>
         <button 
           onClick={openAuthModal}
-          className="mt-8 bg-slate-900 text-white font-semibold text-sm px-8 py-4 rounded-xl hover:bg-slate-800 transition-colors"
+          className="mt-8 bg-slate-900 text-white font-semibold text-sm px-8 py-4 rounded-xl hover:bg-slate-800 transition-colors shadow-md active:scale-95"
         >
           Secure Login
         </button>
@@ -101,20 +140,23 @@ export default function Dashboard() {
   const myCreatedChallenges = stats.recentGames.filter(g => g.opponent === "Challenger");
 
   return (
-    <div className="w-full max-w-2xl mx-auto mt-6 pb-16 overflow-hidden md:overflow-visible">
+    <div className="w-full max-w-2xl mx-auto mt-6 md:mt-10 pb-16 overflow-hidden md:overflow-visible">
 
-      {/* Greeting */}
-      <div className="px-4">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-          Welcome back, {user.displayName?.split(" ")[0] || "Analyst"}!
+      {/* Greeting (Breaks to 2 lines on mobile, stays 1 line on desktop) */}
+      <div className="px-4 md:px-0">
+        <h1 className="text-[1.75rem] md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+          Welcome back,<br className="md:hidden" /> {user.displayName?.split(" ")[0] || "Analyst"}!
         </h1>
         <p className="text-sm text-slate-500 font-medium mt-1">
           Here is what's happening with your account today.
         </p>
       </div>
 
-      {/* Edge-to-Edge Wallet Banner */}
-      <div className="mt-8 -mx-4 md:mx-0 px-6 py-5 bg-slate-900 md:rounded-2xl flex items-center justify-between group cursor-pointer" onClick={() => window.location.href = '/wallet'}>
+      {/* Edge-to-Edge Wallet Banner (Rounded on Desktop) */}
+      <div 
+        onClick={() => window.location.href = '/wallet'}
+        className="mt-8 -mx-4 md:mx-0 px-6 py-5 bg-slate-900 md:rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-slate-800 transition-colors shadow-sm md:shadow-md" 
+      >
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">
             <Wallet size={20} className="text-white" />
@@ -124,36 +166,36 @@ export default function Dashboard() {
             <p className="text-slate-400 text-xs font-medium mt-0.5">Manage funds & withdraw earnings</p>
           </div>
         </div>
-        <ChevronRight size={20} className="text-slate-500 group-hover:text-white transition-colors" />
+        <ChevronRight size={20} className="text-slate-500 group-hover:text-white transition-colors group-hover:translate-x-1" />
       </div>
 
       {/* Next Challenge Prompts */}
       <div className="mt-10 px-4 md:px-0">
         <h3 className="text-sm font-bold text-slate-900 mb-4">Ready for your next challenge?</h3>
         
-        <div className="grid grid-cols-2 gap-3 md:gap-4">
-          {/* Create Challenge (Light Blue) */}
-          <Link href="/create" className="bg-blue-50 border border-blue-100 rounded-2xl p-5 hover:border-blue-300 transition-colors group flex flex-col justify-between aspect-square md:aspect-auto md:h-40">
-            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm text-blue-600 mb-3">
-              <Plus size={18} />
+        <div className="grid grid-cols-2 gap-3 md:gap-5">
+          {/* Create Challenge */}
+          <Link href="/create" className="bg-blue-50 border border-blue-100 rounded-2xl p-5 hover:border-blue-300 hover:shadow-sm transition-all group flex flex-col justify-between aspect-square md:aspect-auto md:h-44">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-blue-600 mb-3">
+              <Plus size={18} className="md:w-5 md:h-5" />
             </div>
             <div>
-              <p className="font-bold text-slate-900 text-sm">Create a challenge</p>
-              <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed hidden sm:block">Set your stake and lock in your prediction.</p>
+              <p className="font-bold text-slate-900 text-sm md:text-base">Create a challenge</p>
+              <p className="text-[11px] md:text-xs text-slate-500 font-medium mt-1 leading-relaxed hidden sm:block">Set your stake and lock in your prediction.</p>
             </div>
             <div className="mt-4 flex justify-end">
               <ArrowRight size={18} className="text-blue-600 group-hover:translate-x-1 transition-transform" />
             </div>
           </Link>
 
-          {/* View Live Challenges (Light Gray) */}
-          <Link href="/feed" className="bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:border-slate-300 transition-colors group flex flex-col justify-between aspect-square md:aspect-auto md:h-40">
-            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm text-slate-600 mb-3">
-              <LayoutGrid size={18} />
+          {/* View Live Challenges */}
+          <Link href="/feed" className="bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:border-slate-300 hover:shadow-sm transition-all group flex flex-col justify-between aspect-square md:aspect-auto md:h-44">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-slate-600 mb-3">
+              <LayoutGrid size={18} className="md:w-5 md:h-5" />
             </div>
             <div>
-              <p className="font-bold text-slate-900 text-sm">Live challenges</p>
-              <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed hidden sm:block">Browse open markets and compete instantly.</p>
+              <p className="font-bold text-slate-900 text-sm md:text-base">Live challenges</p>
+              <p className="text-[11px] md:text-xs text-slate-500 font-medium mt-1 leading-relaxed hidden sm:block">Browse open markets and compete instantly.</p>
             </div>
             <div className="mt-4 flex justify-end">
               <ArrowRight size={18} className="text-slate-600 group-hover:translate-x-1 transition-transform" />
@@ -164,13 +206,15 @@ export default function Dashboard() {
 
       {/* Streak Counter */}
       <div className="mt-8 px-4 md:px-0">
-        <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 flex items-center gap-4">
-          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-orange-500 shadow-sm shrink-0">
-            <Flame size={20} />
+        <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 md:p-5 flex items-center gap-4 shadow-sm">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-full flex items-center justify-center text-orange-500 shadow-sm shrink-0">
+            <Flame size={20} className="md:w-6 md:h-6" />
           </div>
           <div>
-            <p className="text-orange-900 font-bold text-sm">Keep your streak running!</p>
-            <p className="text-orange-700/80 text-xs font-medium mt-0.5">You have logged in for {loginStreak} consecutive days.</p>
+            <p className="text-orange-900 font-bold text-sm md:text-base">Keep your streak running!</p>
+            <p className="text-orange-700/80 text-xs md:text-sm font-medium mt-0.5">
+              You have logged in for {loginStreak} consecutive {loginStreak === 1 ? 'day' : 'days'}.
+            </p>
           </div>
         </div>
       </div>
@@ -184,15 +228,15 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="divide-y divide-slate-100">
             {stats.recentGames.length === 0 ? (
-              <div className="p-8 text-center text-xs font-medium text-slate-400">
+              <div className="p-8 text-center text-xs md:text-sm font-medium text-slate-400">
                 No recent activity. Play a game to see your history here.
               </div>
             ) : (
               stats.recentGames.slice(0, 5).map((game) => (
-                <Link href={`/verify/${game.id}`} key={game.id} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors block">
+                <Link href={`/verify/${game.id}`} key={game.id} className="flex items-center justify-between p-4 md:p-5 hover:bg-slate-50 transition-colors block">
                   <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${game.won ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
                     <div>
@@ -219,16 +263,16 @@ export default function Dashboard() {
         <h3 className="text-sm font-bold text-slate-900 mb-4">Challenges you have created</h3>
         
         {myCreatedChallenges.length === 0 ? (
-          <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-6 text-center">
+          <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-6 md:p-8 text-center shadow-sm">
             <p className="text-slate-500 text-sm font-medium mb-4">You don't have any active challenges.</p>
-            <Link href="/create" className="inline-block bg-white border border-slate-200 text-slate-900 font-semibold text-sm px-5 py-2.5 rounded-lg hover:border-slate-300 transition-colors shadow-sm">
+            <Link href="/create" className="inline-block bg-white border border-slate-200 text-slate-900 font-semibold text-sm px-5 py-2.5 rounded-lg hover:border-slate-300 hover:shadow-sm transition-all shadow-sm">
               Create your first challenge for as low as 1,000 UGX
             </Link>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 md:space-y-3">
             {myCreatedChallenges.map((game) => (
-              <div key={game.id} className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+              <div key={game.id} className="bg-white border border-slate-200 rounded-xl p-4 md:p-5 flex items-center justify-between shadow-sm">
                 <div>
                   <p className="font-semibold text-sm text-slate-900 capitalize">{game.gameType.replace("_", " ")}</p>
                   <p className="text-xs text-slate-500 mt-0.5">Stake: {game.stakeAmount.toLocaleString()} UGX</p>

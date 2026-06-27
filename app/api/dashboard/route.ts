@@ -8,18 +8,14 @@ export async function GET(request: Request) {
     const uid = await verifyToken(request);
     if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Fetch games where user is the creator
+    // Fetch games where user is the creator OR challenger
     const createdSnapshot = await db.collection("games").where("creatorId", "==", uid).get();
-    
-    // Fetch games where user is the challenger
     const challengedSnapshot = await db.collection("games").where("playerBId", "==", uid).get();
 
-    // Combine all games
     let allGames: any[] = [];
     createdSnapshot.forEach(doc => allGames.push({ id: doc.id, ...doc.data() }));
     challengedSnapshot.forEach(doc => allGames.push({ id: doc.id, ...doc.data() }));
 
-    // Remove any potential duplicates
     const uniqueGames = Array.from(new Map(allGames.map(item => [item.id, item])).values());
 
     let totalPlayed = 0;
@@ -28,44 +24,57 @@ export async function GET(request: Request) {
     let recentGames: any[] = [];
 
     uniqueGames.forEach(game => {
+      const isCreator = game.creatorId === uid;
+
       if (game.status === "open") {
         activeEscrows++;
+        // ADDED: Include open games in recentGames so they appear on the dashboard
+        recentGames.push({
+          id: game.id,
+          gameType: game.gameType,
+          opponent: "Pending", // Open games don't have an opponent yet
+          stakeAmount: game.stakeAmount,
+          payout: 0, // No payout yet
+          won: false,
+          status: "open",
+          createdAt: game.createdAt
+        });
       } else if (game.status === "played") {
         totalPlayed++;
-        
-        const isCreator = game.creatorId === uid;
         const won = (isCreator && game.outcome === "creator_won") || (!isCreator && game.outcome === "player_b_won");
-        
         if (won) wins++;
-        
-        // Calculate the payout context
+
         const pool = game.stakeAmount * 2;
         const payout = pool - (pool * 0.10);
 
         recentGames.push({
           id: game.id,
           gameType: game.gameType,
-          opponent: isCreator ? "Challenger" : game.creatorUsername,
+          opponent: isCreator ? (game.playerBUsername || "Challenger") : game.creatorUsername,
           stakeAmount: game.stakeAmount,
           payout: won ? payout : -game.stakeAmount,
           won,
-          choice: isCreator ? game.creatorChoice : game.playerBGuess,
+          status: "played",
           resolvedAt: game.resolvedAt || game.createdAt
         });
       }
     });
 
     const winRate = totalPlayed > 0 ? Math.round((wins / totalPlayed) * 100) : 0;
-    
-    // Sort recent games by most recently resolved
-    recentGames.sort((a, b) => new Date(b.resolvedAt).getTime() - new Date(a.resolvedAt).getTime());
+
+    // Sort: Played games first by resolvedAt, then Open games by createdAt
+    recentGames.sort((a, b) => {
+      const dateA = new Date(a.resolvedAt || a.createdAt).getTime();
+      const dateB = new Date(b.resolvedAt || b.createdAt).getTime();
+      return dateB - dateA;
+    });
 
     return NextResponse.json({
       winRate,
       totalMatches: totalPlayed,
       activeEscrows,
       wins,
-      recentGames: recentGames.slice(0, 10) // Return top 10 recent games
+      recentGames: recentGames.slice(0, 10)
     });
 
   } catch (error: any) {

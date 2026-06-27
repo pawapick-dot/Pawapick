@@ -1,71 +1,71 @@
 // app/page.tsx
 import Link from "next/link";
+import { Zap, ShieldCheck, TrendingUp } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="max-w-md mx-auto space-y-8 mt-12 pb-12 px-2">
+    <div className="max-w-md mx-auto min-h-screen flex flex-col justify-between py-12 px-6">
       
       {/* Hero Section */}
-      <div className="text-center space-y-4">
-        <span className="text-xs font-mono font-bold bg-gray-900 text-white px-3 py-1 rounded-full uppercase tracking-widest">
-          Pawa Pick V1
-        </span>
-        <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 leading-tight">
-          Set the Trap. <br />
-          <span className="text-gray-400">Take the Pick.</span>
+      <div className="text-center space-y-6 pt-12">
+        <div className="inline-block px-4 py-1.5 rounded-full bg-gray-900/5 text-gray-900 font-bold text-[10px] tracking-widest uppercase">
+          Live Betting Network
+        </div>
+        
+        <h1 className="text-6xl font-extrabold tracking-tighter text-gray-900 leading-[0.9]">
+          Pawa<br/>Pick.
         </h1>
-        <p className="text-gray-500 text-lg font-medium px-4">
-          The fastest 1v1 asynchronous betting network in East Africa. No house edge against players, just pure peer-to-peer escrow.
+        
+        <p className="text-lg text-gray-500 font-medium max-w-xs mx-auto">
+          The fastest way to challenge players and win instantly. Transparent, provable, and P2P.
         </p>
-      </div>
 
-      {/* Primary Call to Action */}
-      <div className="pt-4 px-2">
-        <Link href="/dashboard" className="block">
-          <button className="w-full bg-gray-900 text-white font-bold text-lg py-5 rounded-2xl shadow-lg hover:bg-gray-800 transition active:scale-[0.98]">
-            Enter the Arena →
+        {/* Hero CTA */}
+        <Link href="/feed" className="block pt-4">
+          <button className="w-full bg-gray-900 text-white font-bold text-lg py-5 rounded-2xl shadow-xl hover:bg-gray-800 transition active:scale-[0.98]">
+            Enter the Arena
           </button>
         </Link>
       </div>
 
-      {/* How It Works (Bento Style) */}
-      <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm space-y-6 mt-8">
-        <h3 className="text-center font-bold text-gray-900 uppercase tracking-wider text-sm mb-2">
-          How it Works
-        </h3>
-        
-        <div className="flex gap-4 items-start">
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-sm shrink-0">1</div>
+      {/* Trust Pillars */}
+      <div className="grid grid-cols-1 gap-4 mt-12">
+        <div className="flex items-center gap-4 bg-white border border-gray-100 p-5 rounded-2xl shadow-sm">
+          <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+            <Zap size={20} className="text-gray-900" />
+          </div>
           <div>
-            <h4 className="font-bold text-gray-900">Lock the Escrow</h4>
-            <p className="text-sm text-gray-500 mt-1">Player A hides a choice (like a coin under a cup) and stakes UGX.</p>
+            <h4 className="font-bold text-gray-900 text-sm">Instant Resolution</h4>
+            <p className="text-[12px] text-gray-400">Wins paid out the second the match settles.</p>
           </div>
         </div>
 
-        <div className="flex gap-4 items-start">
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-sm shrink-0">2</div>
-          <div>
-            <h4 className="font-bold text-gray-900">Accept the Challenge</h4>
-            <p className="text-sm text-gray-500 mt-1">Player B finds the game on the live feed, matches the stake, and guesses.</p>
+        <div className="flex items-center gap-4 bg-white border border-gray-100 p-5 rounded-2xl shadow-sm">
+          <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+            <ShieldCheck size={20} className="text-gray-900" />
           </div>
-        </div>
-
-        <div className="flex gap-4 items-start">
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-sm shrink-0">3</div>
           <div>
-            <h4 className="font-bold text-gray-900">Provably Fair Payout</h4>
-            <p className="text-sm text-gray-500 mt-1">The smart contract resolves the math, pays the winner instantly, and generates a cryptographic receipt.</p>
+            <h4 className="font-bold text-gray-900 text-sm">Provably Fair</h4>
+            <p className="text-[12px] text-gray-400">Cryptographic audit for every single game.</p>
           </div>
         </div>
       </div>
 
-      {/* Trust Badge */}
-      <div className="text-center pt-6">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Secured by SHA-256 Cryptography
-        </p>
+      {/* Social Proof Stats */}
+      <div className="mt-12 flex justify-between px-2">
+        <div className="text-center">
+          <p className="text-2xl font-black text-gray-900">50+</p>
+          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Live Games</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-black text-gray-900">10s</p>
+          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Avg Speed</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-black text-gray-900">100%</p>
+          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">P2P</p>
+        </div>
       </div>
-
     </div>
   );
 }

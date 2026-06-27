@@ -1,26 +1,109 @@
 // components/Footer.tsx
 import Link from "next/link";
-import { Shield } from "lucide-react";
+import { ShieldCheck, MapPin } from "lucide-react";
 
 export default function Footer() {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer className="w-full bg-white border-t border-gray-100 mt-auto">
-      <div className="max-w-md mx-auto px-6 py-8 flex flex-col items-center text-center space-y-4">
+    <footer className="bg-white border-t border-slate-200 pt-12 pb-8 mt-auto z-10 relative">
+      <div className="max-w-7xl mx-auto px-4">
         
-        <div className="flex items-center gap-2 text-gray-400">
-          <Shield size={16} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">SHA-256 Provably Fair</span>
+        {/* Main Grid: Stacks on mobile, expands to 4 columns on desktop */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-8">
+          
+          {/* Brand & Motto (Takes up half the space on desktop) */}
+          <div className="md:col-span-2 space-y-4">
+            <Link href="/" className="font-extrabold text-2xl tracking-tight inline-block">
+              <span className="text-slate-900">Pawa-</span>
+              <span className="text-blue-600">Pick</span>
+            </Link>
+            <p className="text-slate-500 font-medium max-w-sm leading-relaxed text-sm">
+              The provably fair prediction network where players compete directly. No house edge, instant payouts, and cryptographic transparency.
+            </p>
+            <div className="pt-2">
+              <p className="text-sm font-bold text-slate-900 uppercase tracking-widest">
+                Every game counts.
+              </p>
+            </div>
+          </div>
+
+          {/* Links - Platform */}
+          <div>
+            <h4 className="font-bold text-slate-900 mb-4">Platform</h4>
+            <ul className="space-y-3">
+              <li>
+                <Link href="/feed" className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors">
+                  Live Markets
+                </Link>
+              </li>
+              <li>
+                <Link href="/create" className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors">
+                  Create Forecast
+                </Link>
+              </li>
+              <li>
+                <Link href="/history" className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors">
+                  Match Ledger
+                </Link>
+              </li>
+              <li>
+                <Link href="/verify" className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors">
+                  Trust Center
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Links - Resources */}
+          <div>
+            <h4 className="font-bold text-slate-900 mb-4">Resources</h4>
+            <ul className="space-y-3">
+              <li>
+                <Link href="/how-to" className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors">
+                  How to Play
+                </Link>
+              </li>
+              <li>
+                <Link href="/about" className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors">
+                  Contact
+                </Link>
+              </li>
+              <li>
+                <Link href="/policy" className="text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors">
+                  Platform Policy
+                </Link>
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <div className="flex gap-4 text-sm font-semibold text-gray-500">
-          <Link href="/dashboard" className="hover:text-gray-900 transition">Wallet</Link>
-          <Link href="/feed" className="hover:text-gray-900 transition">Feed</Link>
-          <Link href="/create" className="hover:text-gray-900 transition">Create</Link>
+        {/* Divider */}
+        <div className="w-full h-px bg-slate-100 my-8"></div>
+
+        {/* Bottom Bar: Centers on mobile, spreads to edges on desktop */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="text-xs font-medium text-slate-400 text-center md:text-left">
+            &copy; {currentYear} Pawa Pick. All rights reserved.
+          </p>
+          
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <MapPin size={14} />
+              <span className="text-xs font-medium">Kabale, Uganda</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+              <ShieldCheck size={14} className="text-emerald-500" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">SHA-256 Secured</span>
+            </div>
+          </div>
         </div>
 
-        <p className="text-[11px] text-gray-400 font-medium pt-2">
-          © 2026 Pawa Pick. No house edge against players.
-        </p>
       </div>
     </footer>
   );

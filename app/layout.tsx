@@ -17,18 +17,21 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      {/* Soft SaaS Background */}
-      <body className="flex flex-col min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-100">
+      <body className="flex flex-col min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900">
         <AuthProvider>
+          {/* Global Auth Popup */}
           <AuthModal />
+          
           <Navbar />
+
           <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {children}
           </main>
+
           <Toaster 
             position="top-center" 
             toastOptions={{
-              className: 'bg-white border border-slate-100 text-slate-900 rounded-2xl shadow-lg font-medium',
+              className: 'bg-white border border-slate-200 text-slate-900 rounded-xl shadow-sm font-medium',
               style: { padding: '16px' },
             }} 
           />

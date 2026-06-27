@@ -55,14 +55,27 @@ export default function GlobalFeed() {
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   };
 
+  // Helper for dynamic card styling based on game type
+  const getCardStyle = (type: string) => {
+    switch (type) {
+      case "penalty":
+        return "bg-emerald-50 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300";
+      case "shuffle":
+        return "bg-orange-50 border-orange-200 hover:bg-orange-100 hover:border-orange-300";
+      case "color":
+      default:
+        return "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300";
+    }
+  };
+
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6 mt-6 md:mt-10 pb-16">
       
       {/* Header & Refresh */}
       <div className="px-4 flex items-start justify-between">
         <div>
-          <h1 className="text-[2rem] md:text-4xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
-            {games.length > 0 ? `${games.length}+` : '0'}<br className="md:hidden" /> 
+          <h1 className="text-[2rem] md:text-4xl font-extrabold tracking-tight leading-[1.1]">
+            <span className="text-blue-600">{games.length > 0 ? `${games.length}+` : '0'}</span><br className="md:hidden" /> 
             <span className="text-slate-900"> Live challenges</span>
           </h1>
         </div>
@@ -101,57 +114,58 @@ export default function GlobalFeed() {
       </div>
 
       {/* Game Cards / Feed */}
-      <div className="mt-8 border-t border-slate-200 md:border-none md:mt-10 md:px-4">
+      <div className="mt-8 md:mt-10 px-4">
         {loading ? (
-          <div className="px-4 py-12 text-center text-slate-400 font-medium animate-pulse">
+          <div className="py-12 text-center text-slate-400 font-medium animate-pulse">
             Scanning network...
           </div>
         ) : filteredGames.length === 0 ? (
-          <div className="px-6 py-12 text-center">
+          <div className="py-12 text-center">
             <p className="text-slate-500 font-medium">
               No active challenges right now.<br/> 
               Check back later or <Link href="/create" className="text-blue-600 font-semibold underline decoration-blue-200 underline-offset-4 hover:decoration-blue-600 transition-colors">create a challenge</Link>.
             </p>
           </div>
         ) : (
-          /* Edge-to-Edge List on Mobile / Grid on Desktop */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 md:gap-4">
+          /* Grid for desktop, stacked list for mobile */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredGames.map((game) => {
               const prize = game.stakeAmount * 2 * 0.9;
+              const cardTheme = getCardStyle(game.gameType);
               
               return (
                 <Link 
                   href={`/games/${game.id}`}
                   key={game.id} 
-                  className="block bg-white border-b border-slate-200 md:border md:rounded-2xl p-5 hover:bg-slate-50 transition-colors group"
+                  className={`block border-2 rounded-xl p-5 transition-colors group ${cardTheme}`}
                 >
                   {/* Top: Name & Time */}
                   <div className="flex justify-between items-start mb-5">
                     <div>
                       <h3 className="font-bold text-slate-900 text-base capitalize">{game.gameType.replace("_", " ")}</h3>
-                      <p className="text-xs text-slate-500 mt-1">Created by <span className="font-semibold text-slate-700">{game.creatorUsername}</span></p>
+                      <p className="text-xs text-slate-600 mt-1">Created by <span className="font-bold text-slate-900">{game.creatorUsername}</span></p>
                     </div>
-                    <div className="flex items-center gap-1 text-xs font-semibold text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                    <div className="flex items-center gap-1 text-xs font-semibold text-slate-500 bg-white/60 px-2 py-1 rounded-md border border-white/50">
                       <Hourglass size={12} />
                       {getTimeAgo(game.createdAt)}
                     </div>
                   </div>
 
-                  {/* Middle: Structured Credit-Card Style Stats */}
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex justify-between items-center mb-5">
+                  {/* Middle: Structured Credit-Card Style Stats (Inner Box) */}
+                  <div className="bg-white/60 border border-white/50 rounded-xl p-4 flex justify-between items-center mb-5 backdrop-blur-sm shadow-sm">
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Stake</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Stake</p>
                       <p className="font-extrabold text-slate-900 text-lg">{game.stakeAmount.toLocaleString()}</p>
                     </div>
-                    <div className="w-px h-8 bg-slate-200"></div>
+                    <div className="w-px h-8 bg-slate-300/50"></div>
                     <div className="text-right">
-                      <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-0.5">Prize</p>
-                      <p className="font-extrabold text-blue-600 text-lg">{prize.toLocaleString()}</p>
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-0.5">Prize</p>
+                      <p className="font-extrabold text-blue-700 text-lg">{prize.toLocaleString()}</p>
                     </div>
                   </div>
 
                   {/* Bottom: Action Link */}
-                  <div className="flex justify-between items-center text-sm font-semibold text-blue-600">
+                  <div className="flex justify-between items-center text-sm font-bold text-slate-900">
                     <span>View details</span>
                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                   </div>

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { Lock, Target, Coins, ShieldCheck, ArrowRight } from "lucide-react";
+import { Target, Coins, ShieldCheck, ArrowRight, ChevronRight, Lock } from "lucide-react";
 
 export default function CreateGame() {
   const router = useRouter();
@@ -13,11 +13,10 @@ export default function CreateGame() {
   
   const [step, setStep] = useState(1);
   const [gameType, setGameType] = useState("");
-  const [stakeAmount, setStakeAmount] = useState(1000);
+  const [stakeAmount, setStakeAmount] = useState(5000);
   const [creatorChoice, setCreatorChoice] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Auto-advance when selecting a game
   const handleSelectGame = (type: string) => {
     setGameType(type);
     setStep(2);
@@ -25,7 +24,7 @@ export default function CreateGame() {
 
   const handleCreate = async () => {
     if (!user) return openAuthModal();
-    if (!creatorChoice) return toast.error("You must hide a choice!");
+    if (!creatorChoice) return toast.error("Please make a selection.");
 
     setIsProcessing(true);
     
@@ -45,10 +44,10 @@ export default function CreateGame() {
           return data;
         }),
         {
-          loading: "Locking funds & generating hash...",
-          success: (data) => {
+          loading: "Initializing smart escrow...",
+          success: () => {
             setTimeout(() => router.push("/dashboard"), 1000);
-            return "Trap set! Match is now live on the feed.";
+            return "Market created successfully.";
           },
           error: (err) => {
             setIsProcessing(false);
@@ -62,207 +61,135 @@ export default function CreateGame() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center animate-pulse font-bold tracking-widest text-gray-400">Loading...</div>;
+  if (loading) return <div className="p-8 text-center font-medium text-slate-400">Loading portal...</div>;
 
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-        <div className="w-20 h-20 bg-yellow-400 flex items-center justify-center mb-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-          <Lock size={32} className="text-black" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
+        <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-6">
+          <Lock size={28} className="text-blue-600" />
         </div>
-        <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">Creation Locked</h1>
-        <p className="text-gray-500 font-medium mt-2 max-w-sm text-sm">
-          You must log in to access the escrow engine and set challenges.
-        </p>
-        <button 
-          onClick={openAuthModal}
-          className="mt-8 bg-black text-white font-black uppercase tracking-widest text-sm px-10 py-5 hover:bg-gray-800 transition-all"
-        >
-          Verify Identity
+        <h1 className="text-2xl font-bold text-slate-900">Access Restricted</h1>
+        <p className="text-slate-500 mt-2 max-w-sm text-sm">Please authenticate to manage your prediction markets.</p>
+        <button onClick={openAuthModal} className="mt-8 bg-slate-900 text-white font-semibold px-8 py-3 rounded-xl hover:bg-slate-800 transition">
+          Secure Login
         </button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-md mx-auto space-y-6 mt-4 pb-12 px-4">
+    <div className="max-w-xl mx-auto py-8 px-4">
       
-      {/* Progress Bar */}
-      <div className="flex gap-2 mb-8">
+      {/* Progress */}
+      <div className="flex gap-2 mb-10">
         {[1, 2, 3].map((num) => (
-          <div key={num} className={`h-2 flex-1 transition-all duration-300 ${step >= num ? 'bg-yellow-400' : 'bg-gray-200'}`} />
+          <div key={num} className={`h-1.5 flex-1 rounded-full transition-colors ${step >= num ? 'bg-blue-600' : 'bg-slate-200'}`} />
         ))}
       </div>
 
-      {/* STEP 1: CHOOSE BATTLEFIELD */}
       {step === 1 && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Choose Arena</h2>
-            <p className="text-sm font-medium text-gray-500 mt-2">
-              Select the battlefield. Each game has different psychological dynamics to outsmart your opponent.
-            </p>
+            <h2 className="text-2xl font-bold text-slate-900">Select Market</h2>
+            <p className="text-slate-500 mt-2 text-sm">Choose the category for your prediction.</p>
           </div>
 
-          <div className="space-y-4">
-            <button 
-              onClick={() => handleSelectGame("penalty")} 
-              className="w-full bg-green-500 border-2 border-green-700 p-6 flex items-center justify-between hover:bg-green-600 hover:shadow-[4px_4px_0px_0px_rgba(21,128,61,1)] active:translate-y-1 active:shadow-none transition-all group"
-            >
-              <div className="text-left">
-                <p className="font-black text-white uppercase text-xl">Penalty Shootout</p>
-                <p className="text-green-100 font-medium text-xs mt-1">3 Options • 33% Win Chance</p>
-              </div>
-              <Target size={32} className="text-green-200 group-hover:text-white transition-colors" />
-            </button>
-
-            <button 
-              onClick={() => handleSelectGame("color")} 
-              className="w-full bg-blue-500 border-2 border-blue-700 p-6 flex items-center justify-between hover:bg-blue-600 hover:shadow-[4px_4px_0px_0px_rgba(29,78,216,1)] active:translate-y-1 active:shadow-none transition-all group"
-            >
-              <div className="text-left">
-                <p className="font-black text-white uppercase text-xl">Color Minefield</p>
-                <p className="text-blue-100 font-medium text-xs mt-1">2 Options • 50% Win Chance</p>
-              </div>
-              <div className="flex gap-1">
-                <div className="w-4 h-8 bg-blue-300 border border-blue-200"></div>
-                <div className="w-4 h-8 bg-yellow-400 border border-yellow-200"></div>
-              </div>
-            </button>
-
-            <button 
-              onClick={() => handleSelectGame("shuffle")} 
-              className="w-full bg-red-500 border-2 border-red-700 p-6 flex items-center justify-between hover:bg-red-600 hover:shadow-[4px_4px_0px_0px_rgba(185,28,28,1)] active:translate-y-1 active:shadow-none transition-all group"
-            >
-              <div className="text-left">
-                <p className="font-black text-white uppercase text-xl">3-Cup Shuffle</p>
-                <p className="text-red-100 font-medium text-xs mt-1">3 Options • 33% Win Chance</p>
-              </div>
-              <div className="flex gap-1">
-                <div className="w-6 h-8 bg-red-700 rounded-t-sm rounded-b-lg"></div>
-                <div className="w-6 h-8 bg-red-700 rounded-t-sm rounded-b-lg"></div>
-              </div>
-            </button>
+          <div className="space-y-3">
+            {[
+              { id: "penalty", name: "Penalty Shootout", desc: "Choose the target zone (3 options)", color: "text-emerald-600" },
+              { id: "color", name: "Color Minefield", desc: "Select the hidden tile (2 options)", color: "text-blue-600" },
+              { id: "shuffle", name: "3-Cup Shuffle", desc: "Hide the prize under a cup (3 options)", color: "text-rose-600" }
+            ].map(item => (
+              <button 
+                key={item.id}
+                onClick={() => handleSelectGame(item.id)}
+                className="w-full flex items-center justify-between p-5 bg-white border border-slate-200 rounded-2xl hover:border-blue-300 transition-all text-left group"
+              >
+                <div>
+                  <p className={`font-semibold ${item.color}`}>{item.name}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
+                </div>
+                <ChevronRight size={18} className="text-slate-300 group-hover:text-blue-600" />
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {/* STEP 2: SET STAKE */}
       {step === 2 && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-          <button onClick={() => setStep(1)} className="text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-black">← Back</button>
-          
+        <div className="space-y-6">
+          <button onClick={() => setStep(1)} className="text-xs font-semibold text-slate-400 hover:text-slate-900">← Back</button>
           <div>
-            <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Define Stakes</h2>
-            <p className="text-sm font-medium text-gray-500 mt-2">
-              How much UGX are you willing to lock in the smart escrow? High stakes attract faster challengers.
-            </p>
+            <h2 className="text-2xl font-bold text-slate-900">Commitment Amount</h2>
+            <p className="text-slate-500 mt-2 text-sm">Set the amount for your prediction pool (UGX).</p>
           </div>
 
-          <div className="bg-yellow-50 border-2 border-yellow-400 p-8 text-center">
-            <Coins size={32} className="mx-auto text-yellow-500 mb-4" />
+          <div className="bg-white p-8 border border-slate-200 rounded-2xl text-center">
             <input 
               type="number" 
               value={stakeAmount} 
               onChange={(e) => setStakeAmount(Number(e.target.value))}
-              className="w-full text-center text-4xl font-black bg-transparent border-b-4 border-yellow-300 focus:outline-none focus:border-yellow-500 pb-2 text-black"
+              className="w-full text-center text-4xl font-bold bg-transparent focus:outline-none text-slate-900"
             />
-            <span className="block mt-2 font-black text-gray-500 uppercase tracking-widest text-xs">UGX</span>
+            <p className="text-xs font-semibold text-slate-400 mt-2 uppercase tracking-widest">UGX</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            {[1000, 5000, 10000].map(amt => (
-              <button 
-                key={amt} 
-                onClick={() => setStakeAmount(amt)}
-                className="bg-white border-2 border-gray-200 py-4 font-black text-gray-900 hover:border-yellow-400 transition-colors"
-              >
+          <div className="grid grid-cols-3 gap-3">
+            {[2000, 5000, 10000].map(amt => (
+              <button key={amt} onClick={() => setStakeAmount(amt)} className="py-3 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-sm hover:border-blue-300 transition">
                 {amt.toLocaleString()}
               </button>
             ))}
           </div>
 
-          <button 
-            onClick={() => setStep(3)} 
-            className="w-full bg-black text-white font-black py-5 uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors shadow-[4px_4px_0px_0px_rgba(250,204,21,1)]"
-          >
-            Confirm Stake <ArrowRight size={18} />
-          </button>
+          <button onClick={() => setStep(3)} className="w-full bg-blue-600 text-white font-semibold py-4 rounded-xl hover:bg-blue-700">Next Step</button>
         </div>
       )}
 
-      {/* STEP 3: SET TRAP */}
       {step === 3 && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-          <button onClick={() => setStep(2)} className="text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-black">← Back</button>
-          
+        <div className="space-y-6">
+          <button onClick={() => setStep(2)} className="text-xs font-semibold text-slate-400 hover:text-slate-900">← Back</button>
           <div>
-            <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Set the Trap</h2>
-            <p className="text-sm font-medium text-gray-500 mt-2">
-              Hide your choice. Once submitted, this selection is cryptographically sealed and cannot be changed.
-            </p>
+            <h2 className="text-2xl font-bold text-slate-900">Seal your Forecast</h2>
+            <p className="text-slate-500 mt-2 text-sm">Make your selection. It will be cryptographically locked.</p>
           </div>
 
-          <div className="bg-gray-50 border-2 border-gray-200 p-6">
-            
+          <div className="bg-white border border-slate-200 rounded-2xl p-6">
             {gameType === "penalty" && (
               <div className="grid grid-cols-3 gap-3">
                 {["left", "center", "right"].map(opt => (
-                  <button 
-                    key={opt} 
-                    onClick={() => setCreatorChoice(opt)} 
-                    className={`py-8 font-black uppercase border-2 transition-all ${creatorChoice === opt ? 'bg-green-500 text-white border-green-700 shadow-[4px_4px_0px_0px_rgba(21,128,61,1)]' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'}`}
-                  >
-                    {opt}
-                  </button>
+                  <button key={opt} onClick={() => setCreatorChoice(opt)} className={`py-6 rounded-xl font-semibold capitalize ${creatorChoice === opt ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600'}`}>{opt}</button>
                 ))}
               </div>
             )}
-
             {gameType === "color" && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {["blue", "yellow"].map(opt => (
-                  <button 
-                    key={opt} 
-                    onClick={() => setCreatorChoice(opt)} 
-                    className={`py-12 font-black uppercase border-2 transition-all ${
-                      creatorChoice === opt && opt === "blue" ? 'bg-blue-500 text-white border-blue-700 shadow-[4px_4px_0px_0px_rgba(29,78,216,1)]' : 
-                      creatorChoice === opt && opt === "yellow" ? 'bg-yellow-400 text-black border-yellow-600 shadow-[4px_4px_0px_0px_rgba(202,138,4,1)]' : 
-                      'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
-                    }`}
-                  >
-                    {opt}
-                  </button>
+                  <button key={opt} onClick={() => setCreatorChoice(opt)} className={`py-6 rounded-xl font-semibold capitalize ${creatorChoice === opt ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600'}`}>{opt}</button>
                 ))}
               </div>
             )}
-
             {gameType === "shuffle" && (
-               <div className="grid grid-cols-3 gap-3">
-                 {["cup_1", "cup_2", "cup_3"].map(opt => (
-                   <button 
-                     key={opt} 
-                     onClick={() => setCreatorChoice(opt)} 
-                     className={`py-8 font-black uppercase text-xs border-2 transition-all ${creatorChoice === opt ? 'bg-red-500 text-white border-red-700 shadow-[4px_4px_0px_0px_rgba(185,28,28,1)]' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'}`}
-                   >
-                     {opt.replace("_", " ")}
-                   </button>
-                 ))}
-               </div>
+              <div className="grid grid-cols-3 gap-3">
+                {["cup_1", "cup_2", "cup_3"].map(opt => (
+                  <button key={opt} onClick={() => setCreatorChoice(opt)} className={`py-6 rounded-xl font-semibold capitalize ${creatorChoice === opt ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600'}`}>{opt.replace("_", " ")}</button>
+                ))}
+              </div>
             )}
           </div>
 
-          <div className="bg-gray-900 text-gray-400 p-4 flex items-start gap-3 text-xs font-medium">
-            <ShieldCheck size={16} className="text-yellow-400 shrink-0 mt-0.5" />
-            <p>Your stake of <strong className="text-white">{stakeAmount.toLocaleString()} UGX</strong> will be locked. This hash will be publicly verifiable.</p>
+          <div className="bg-blue-50 p-4 rounded-xl flex gap-3">
+            <ShieldCheck size={20} className="text-blue-600 shrink-0" />
+            <p className="text-xs text-blue-900 font-medium">Your choice is hashed and sealed. This ensures absolute fairness for your challenger.</p>
           </div>
 
           <button 
             onClick={handleCreate} 
             disabled={!creatorChoice || isProcessing}
-            className={`w-full font-black py-5 uppercase tracking-widest transition-all ${!creatorChoice || isProcessing ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-yellow-400 text-black border-2 border-black hover:bg-yellow-500 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none'}`}
+            className="w-full bg-slate-900 text-white font-semibold py-4 rounded-xl hover:bg-slate-800 disabled:bg-slate-300 transition"
           >
-            {isProcessing ? "Deploying Smart Escrow..." : "Lock Escrow & Deploy"}
+            {isProcessing ? "Deploying..." : "Launch Market"}
           </button>
         </div>
       )}

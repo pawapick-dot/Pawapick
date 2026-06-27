@@ -1,62 +1,62 @@
 // app/page.tsx
 import Link from "next/link";
-import { ShieldCheck, Swords, Wallet, CheckSquare } from "lucide-react";
+import { ShieldCheck, BrainCircuit, Wallet, Activity } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col pt-8 pb-16 px-4">
+    <div className="max-w-md mx-auto min-h-screen flex flex-col pt-10 pb-16 px-4">
       
       {/* Hero Section */}
       <div className="text-center space-y-6 pt-8">
-        <div className="inline-block px-4 py-1.5 border-2 border-black bg-yellow-400 text-black font-black text-[10px] tracking-widest uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-          100% Peer-to-Peer Betting
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 font-medium text-xs border border-blue-100">
+          <Activity size={14} />
+          Peer-to-Peer Prediction Network
         </div>
         
-        <h1 className="text-6xl font-black tracking-tighter text-gray-900 leading-[0.9] uppercase">
-          Pawa<br/>Pick.
+        <h1 className="text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
+          Forecast.<br/>
+          Outsmart.<br/>
+          <span className="text-blue-600">Settle.</span>
         </h1>
         
-        <p className="text-lg text-gray-600 font-medium max-w-xs mx-auto leading-snug">
-          Stop betting against the company. Play directly against real people, win instant UGX, and withdraw your money.
+        <p className="text-base text-slate-500 font-medium max-w-xs mx-auto leading-relaxed">
+          Test your intuition against real people. Lock your prediction in a smart escrow and win instant UGX when your forecast is correct.
         </p>
 
         {/* Hero CTA */}
-        <div className="pt-6">
+        <div className="pt-4">
           <Link href="/feed" className="block">
-            <button className="w-full bg-black text-white font-black uppercase tracking-widest text-lg py-5 border-2 border-black hover:bg-gray-800 transition shadow-[6px_6px_0px_0px_rgba(250,204,21,1)] active:translate-y-1 active:shadow-none">
-              Enter the Arena
+            <button className="w-full bg-blue-600 text-white font-semibold text-lg py-4 rounded-xl hover:bg-blue-700 transition-colors">
+              View Live Markets
             </button>
           </Link>
         </div>
       </div>
 
-      {/* Why Play Here? (Value Props) */}
-      <div className="mt-16 space-y-4">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-2 h-2 bg-yellow-400"></div>
-          <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Why Pawa Pick?</h3>
-        </div>
+      {/* Value Propositions */}
+      <div className="mt-16 space-y-3">
+        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1 mb-3">Platform Features</h3>
 
-        <div className="bg-white border-2 border-black rounded-none p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex gap-4 items-start">
-          <div className="w-10 h-10 bg-yellow-400 border-2 border-black flex items-center justify-center shrink-0">
-            <Swords size={20} className="text-black" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 flex gap-4 items-start">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+            <BrainCircuit size={20} className="text-blue-600" />
           </div>
           <div>
-            <h4 className="font-black text-gray-900 uppercase tracking-wide text-sm">No "House Edge"</h4>
-            <p className="text-xs text-gray-600 mt-1 font-medium leading-relaxed">
-              Betting companies are designed to make you lose. Here, you only play against other humans. Winner takes the pool (minus a small 10% platform fee to keep the lights on).
+            <h4 className="font-semibold text-slate-900 text-sm">Pure Logic, No House</h4>
+            <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+              We do not participate in the markets. You only predict against other users. The winner takes the committed pool (minus a 10% platform fee).
             </p>
           </div>
         </div>
 
-        <div className="bg-white border-2 border-black rounded-none p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex gap-4 items-start">
-          <div className="w-10 h-10 bg-green-400 border-2 border-black flex items-center justify-center shrink-0">
-            <Wallet size={20} className="text-black" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 flex gap-4 items-start">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+            <Wallet size={20} className="text-emerald-600" />
           </div>
           <div>
-            <h4 className="font-black text-gray-900 uppercase tracking-wide text-sm">Instant UGX Settlement</h4>
-            <p className="text-xs text-gray-600 mt-1 font-medium leading-relaxed">
-              When you win a match, the smart escrow instantly moves the money to your wallet. No waiting for admins to approve your money.
+            <h4 className="font-semibold text-slate-900 text-sm">Instant Smart Escrow</h4>
+            <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+              Funds are held securely. The moment a resolution is reached, the UGX is instantly settled into the winner's digital wallet.
             </p>
           </div>
         </div>
@@ -64,35 +64,32 @@ export default function Home() {
 
       {/* How It Works Guide */}
       <div className="mt-12">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-2 h-2 bg-yellow-400"></div>
-          <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">How to Play</h3>
-        </div>
+        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1 mb-4">How It Works</h3>
 
-        <div className="bg-gray-50 border-2 border-gray-200 p-1">
+        <div className="bg-white border border-slate-200 rounded-2xl p-2">
           <div className="space-y-1">
             
-            <div className="bg-white p-5 border border-gray-100 flex gap-4 items-center">
-              <span className="text-3xl font-black text-gray-200">1</span>
+            <div className="p-4 flex gap-4 items-center">
+              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0 border border-slate-100">1</div>
               <div>
-                <h4 className="font-black text-sm text-gray-900 uppercase">Set a Trap</h4>
-                <p className="text-[11px] text-gray-500 font-medium mt-0.5">Pick a game like Penalty or Colors. Hide your choice and lock in your UGX stake.</p>
+                <h4 className="font-semibold text-sm text-slate-900">Create a Forecast</h4>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">Pick a scenario, lock in your prediction, and commit your UGX to the smart escrow.</p>
               </div>
             </div>
 
-            <div className="bg-white p-5 border border-gray-100 flex gap-4 items-center">
-              <span className="text-3xl font-black text-gray-200">2</span>
+            <div className="p-4 flex gap-4 items-center border-t border-slate-100">
+              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0 border border-slate-100">2</div>
               <div>
-                <h4 className="font-black text-sm text-gray-900 uppercase">Wait for a Challenger</h4>
-                <p className="text-[11px] text-gray-500 font-medium mt-0.5">Your game goes to the Live Feed. Someone matches your UGX and tries to guess your choice.</p>
+                <h4 className="font-semibold text-sm text-slate-900">Wait for an Analyst</h4>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">Your market goes live. Another user matches your UGX and challenges your forecast.</p>
               </div>
             </div>
 
-            <div className="bg-white p-5 border border-gray-100 flex gap-4 items-center">
-              <span className="text-3xl font-black text-gray-200">3</span>
+            <div className="p-4 flex gap-4 items-center border-t border-slate-100">
+              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-sm shrink-0 border border-slate-100">3</div>
               <div>
-                <h4 className="font-black text-sm text-gray-900 uppercase">Take the Money</h4>
-                <p className="text-[11px] text-gray-500 font-medium mt-0.5">If they guess wrong, you win their money. If they guess right, they take yours.</p>
+                <h4 className="font-semibold text-sm text-slate-900">Instant Settlement</h4>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">When the scenario resolves, the smart escrow automatically releases the pool to the correct predictor.</p>
               </div>
             </div>
 
@@ -101,11 +98,11 @@ export default function Home() {
       </div>
 
       {/* Security Reassurance */}
-      <div className="mt-12 bg-gray-900 border-2 border-black p-6 text-center shadow-[4px_4px_0px_0px_rgba(250,204,21,1)]">
-        <ShieldCheck size={28} className="mx-auto text-yellow-400 mb-3" />
-        <h4 className="font-black text-white uppercase tracking-widest text-sm">Can people cheat?</h4>
-        <p className="text-xs text-gray-400 mt-2 font-medium leading-relaxed">
-          Impossible. When you create a match, your choice is locked using military-grade math (SHA-256 Cryptography). We give both players a receipt to prove the game was 100% fair.
+      <div className="mt-12 bg-blue-50 border border-blue-100 rounded-2xl p-6 text-center">
+        <ShieldCheck size={24} className="mx-auto text-blue-600 mb-3" />
+        <h4 className="font-semibold text-blue-900 text-sm">Cryptographically Proven</h4>
+        <p className="text-xs text-blue-800/80 mt-2 leading-relaxed font-medium">
+          Every prediction is sealed using SHA-256 hashing. Both parties receive an immutable receipt to guarantee the outcome was unaltered and 100% fair.
         </p>
       </div>
 

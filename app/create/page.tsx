@@ -37,7 +37,13 @@ export default function CreateGame() {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}` 
           },
-          body: JSON.stringify({ gameType, stakeAmount, creatorChoice }),
+          // FIX: Passing the real user.displayName from Auth to the backend
+          body: JSON.stringify({ 
+            gameType, 
+            stakeAmount, 
+            creatorChoice,
+            creatorName: user.displayName // <-- ADDED THIS
+          }),
         }).then(async (res) => {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error);
@@ -163,8 +169,7 @@ export default function CreateGame() {
                 ))}
               </div>
             )}
-            
-            {/* COLOR MINEFIELD CONDITIONAL LOGIC */}
+
             {gameType === "color" && (
               <div className="grid grid-cols-2 gap-3">
                 {["blue", "yellow"].map(opt => (
@@ -184,7 +189,7 @@ export default function CreateGame() {
                 ))}
               </div>
             )}
-            
+
             {gameType === "shuffle" && (
               <div className="grid grid-cols-3 gap-3">
                 {["cup_1", "cup_2", "cup_3"].map(opt => (

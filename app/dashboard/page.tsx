@@ -13,7 +13,8 @@ import {
   Lock,
   Flame,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  LogOut
 } from "lucide-react";
 
 type RecentGame = {
@@ -27,7 +28,8 @@ type RecentGame = {
 };
 
 export default function Dashboard() {
-  const { user, loading: authLoading, openAuthModal } = useAuth();
+  // Added logout to the destructured auth context
+  const { user, loading: authLoading, openAuthModal, logout } = useAuth();
 
   const [stats, setStats] = useState({
     winRate: 0,
@@ -63,7 +65,7 @@ export default function Dashboard() {
     if (user) {
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Normalize to midnight
-      
+
       const lastLoginStr = localStorage.getItem(`lastLogin_${user.uid}`);
       let currentStreak = parseInt(localStorage.getItem(`streak_${user.uid}`) || "0", 10);
 
@@ -141,7 +143,7 @@ export default function Dashboard() {
   return (
     <div className="w-full max-w-2xl mx-auto mt-6 md:mt-10 pb-16 overflow-hidden md:overflow-visible">
 
-      {/* Greeting (Breaks to 2 lines on mobile, stays 1 line on desktop. Name in blue) */}
+      {/* Greeting & Logout */}
       <div className="px-4 md:px-0">
         <h1 className="text-[1.75rem] md:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
           Welcome back,<br className="md:hidden" /> <span className="text-blue-600">{user.displayName?.split(" ")[0] || "Analyst"}</span>!
@@ -149,6 +151,18 @@ export default function Dashboard() {
         <p className="text-sm text-slate-500 font-medium mt-1">
           Here is what's happening with your account today.
         </p>
+        <button 
+          onClick={() => {
+            if(logout) {
+              logout();
+              window.location.href = '/';
+            }
+          }}
+          className="mt-4 flex items-center gap-1.5 bg-slate-100 text-rose-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors w-fit"
+        >
+          <LogOut size={14} />
+          Logout
+        </button>
       </div>
 
       {/* Edge-to-Edge Wallet Banner (Rounded on Desktop) */}
@@ -171,7 +185,7 @@ export default function Dashboard() {
       {/* Next Challenge Prompts */}
       <div className="mt-10 px-4 md:px-0">
         <h3 className="text-sm font-bold text-slate-900 mb-4">Ready for your next challenge?</h3>
-        
+
         <div className="grid grid-cols-2 gap-3 md:gap-5">
           {/* Create Challenge */}
           <Link href="/create" className="bg-blue-50 border border-blue-100 rounded-2xl p-5 hover:border-blue-300 hover:shadow-sm transition-all group flex flex-col justify-between aspect-square md:aspect-auto md:h-44">
@@ -268,7 +282,7 @@ export default function Dashboard() {
       {/* Challenges You Have Created */}
       <div className="mt-10 px-4 md:px-0">
         <h3 className="text-sm font-bold text-slate-900 mb-4">Challenges you have created</h3>
-        
+
         {myActiveChallenges.length === 0 ? (
           <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-6 md:p-8 text-center shadow-sm">
             <p className="text-slate-500 text-sm font-medium mb-4">You don't have any active challenges.</p>

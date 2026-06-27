@@ -1,112 +1,96 @@
 // app/api/games/resolve/route.ts
 import { db } from "@/lib/firebase-admin";
+import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
-
-// Hardcoded for MVP testing. In production, this comes from the auth token.
-const PLAYER_B_ID = "test_user_ug"; 
+import * as admin from "firebase-admin";
 
 export async function POST(request: Request) {
   try {
-    const { gameId, guess } = await request.json();
+    // 1. Verify User
+    const uid = await verifyToken(request);
+    if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    if (!gameId || !guess) {
-      return NextResponse.json({ error: "Missing game ID or guess" }, { status: 400 });
-    }
+    const { gameId, guess } = await request.json();
+    if (!gameId || !guess) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
     const gameRef = db.collection("games").doc(gameId);
-    const playerBRef = db.collection("users").doc(PLAYER_B_ID);
-    const platformWalletRef = db.collection("platform_revenue").doc("escrow_rake");
+    const challengerRef = db.collection("users").doc(uid);
 
-    // Execute the resolution inside an atomic transaction
     const result = await db.runTransaction(async (transaction) => {
-      const [gameDoc, playerBDoc] = await Promise.all([
-        transaction.get(gameRef),
-        transaction.get(playerBRef)
+      // 2. READ ALL DATA FIRST (Firestore transaction rule)
+      const gameDoc = await transaction.get(gameRef);
+      if (!gameDoc.exists) throw new Error("Game not found");
+      
+      const game = gameDoc.data()!;
+      if (game.status !== "open") throw new Error("Match already resolved by another player.");
+      if (game.creatorId === uid) throw new Error("You cannot play your own game.");
+
+      const creatorRef = db.collection("users").doc(game.creatorId);
+      const [challengerDoc, creatorDoc] = await Promise.all([
+        transaction.get(challengerRef),
+        transaction.get(creatorRef)
       ]);
 
-      if (!gameDoc.exists) throw new Error("Game not found");
-      const gameData = gameDoc.data()!;
+      const challengerBalance = challengerDoc.exists ? (challengerDoc.data()?.walletBalance || 0) : 0;
+      const creatorBalance = creatorDoc.exists ? (creatorDoc.data()?.walletBalance || 0) : 0;
 
-      if (gameData.status !== "open") {
-        throw new Error("Too late! Someone else already played this challenge.");
+      if (challengerBalance < game.stakeAmount) {
+        throw new Error("Insufficient funds to challenge. Please top up your wallet.");
       }
+
+      // 3. EXECUTE MATH & LOGIC
+      const pool = game.stakeAmount * 2;
+      const rake = pool * 0.10;
+      const payout = pool - rake;
       
-      // Prevent the creator from playing their own game
-      if (gameData.creatorId === PLAYER_B_ID) {
-        throw new Error("You cannot play your own challenge.");
-      }
+      const isChallengerWin = guess === game.creatorChoice;
+      const outcome = isChallengerWin ? "player_b_won" : "creator_won";
 
-      const playerBBalance = playerBDoc.data()?.walletBalance || 0;
-      const stake = gameData.stakeAmount;
+      // Calculate final balances
+      let newChallengerBalance = challengerBalance - game.stakeAmount;
+      let newCreatorBalance = creatorBalance; // Creator stake was deducted on creation
 
-      if (playerBBalance < stake) {
-        throw new Error("Insufficient funds to accept this challenge.");
-      }
-
-      // -- MATCH LOGIC & MATH --
-      const totalPool = stake * 2;
-      const rake = totalPool * 0.10; // 10% platform fee
-      const payout = totalPool - rake;
-
-      let winnerId = "";
-      let outcome = "";
-
-      // Did Player B guess the hidden choice?
-      if (guess === gameData.creatorChoice) {
-        winnerId = PLAYER_B_ID;
-        outcome = "player_b_won";
+      if (isChallengerWin) {
+        newChallengerBalance += payout;
       } else {
-        winnerId = gameData.creatorId;
-        outcome = "creator_won";
+        newCreatorBalance += payout;
       }
 
-      // -- FINANCIAL SETTLEMENT --
-      // 1. Deduct stake from Player B
-      transaction.update(playerBRef, { 
-        walletBalance: playerBBalance - stake 
+      // 4. WRITE UPDATES
+      // Update Wallets
+      transaction.set(challengerRef, { walletBalance: newChallengerBalance }, { merge: true });
+      transaction.set(creatorRef, { walletBalance: newCreatorBalance }, { merge: true });
+
+      const timestamp = admin.firestore.FieldValue.serverTimestamp();
+      
+      // Write Ledger Receipts
+      transaction.set(db.collection("transactions").doc(), {
+        uid, type: "stake_deduction", amount: -game.stakeAmount, status: "Completed", createdAt: timestamp
       });
 
-      // 2. Pay the winner
-      if (winnerId === PLAYER_B_ID) {
-        // Player B gets their money back + the winnings
-        transaction.update(playerBRef, { 
-          walletBalance: (playerBBalance - stake) + payout 
+      if (isChallengerWin) {
+        transaction.set(db.collection("transactions").doc(), {
+          uid, type: "game_win", amount: payout, status: "Completed", createdAt: timestamp
         });
       } else {
-        // Player A wins (funds were deducted at creation, so just add payout)
-        const playerARef = db.collection("users").doc(gameData.creatorId);
-        const playerADoc = await transaction.get(playerARef);
-        const playerABalance = playerADoc.data()?.walletBalance || 0;
-        
-        transaction.update(playerARef, { 
-          walletBalance: playerABalance + payout 
+        transaction.set(db.collection("transactions").doc(), {
+          uid: game.creatorId, type: "game_win", amount: payout, status: "Completed", createdAt: timestamp
         });
       }
 
-      // 3. Log Platform Rake
-      transaction.set(platformWalletRef, {
-        totalRakeCollected: FirebaseFirestore.FieldValue.increment(rake)
-      }, { merge: true });
-
-      // -- LOCK GAME STATE --
+      // Seal the Game
       transaction.update(gameRef, {
         status: "played",
-        playerBId: PLAYER_B_ID,
+        playerBId: uid,
         playerBGuess: guess,
-        winnerId: winnerId,
+        outcome,
         resolvedAt: new Date().toISOString()
       });
 
-      // Return the secret data to the frontend so it can animate the reveal
-      return {
-        outcome,
-        payout,
-        creatorChoice: gameData.creatorChoice,
-        serverSeed: gameData.serverSeed
-      };
+      return { outcome, creatorChoice: game.creatorChoice, payout };
     });
 
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json(result);
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });

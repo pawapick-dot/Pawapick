@@ -10,7 +10,7 @@ import { Target, Coins, ShieldCheck, ArrowRight, ChevronRight, Lock } from "luci
 export default function CreateGame() {
   const router = useRouter();
   const { user, loading, openAuthModal } = useAuth();
-  
+
   const [step, setStep] = useState(1);
   const [gameType, setGameType] = useState("");
   const [stakeAmount, setStakeAmount] = useState(5000);
@@ -27,7 +27,7 @@ export default function CreateGame() {
     if (!creatorChoice) return toast.error("Please make a selection.");
 
     setIsProcessing(true);
-    
+
     try {
       const token = await user.getIdToken();
       toast.promise(
@@ -80,7 +80,7 @@ export default function CreateGame() {
 
   return (
     <div className="max-w-xl mx-auto py-8 px-4">
-      
+
       {/* Progress */}
       <div className="flex gap-2 mb-10">
         {[1, 2, 3].map((num) => (
@@ -159,21 +159,36 @@ export default function CreateGame() {
             {gameType === "penalty" && (
               <div className="grid grid-cols-3 gap-3">
                 {["left", "center", "right"].map(opt => (
-                  <button key={opt} onClick={() => setCreatorChoice(opt)} className={`py-6 rounded-xl font-semibold capitalize ${creatorChoice === opt ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600'}`}>{opt}</button>
+                  <button key={opt} onClick={() => setCreatorChoice(opt)} className={`py-6 rounded-xl font-semibold capitalize transition-colors ${creatorChoice === opt ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}>{opt}</button>
                 ))}
               </div>
             )}
+            
+            {/* COLOR MINEFIELD CONDITIONAL LOGIC */}
             {gameType === "color" && (
               <div className="grid grid-cols-2 gap-3">
                 {["blue", "yellow"].map(opt => (
-                  <button key={opt} onClick={() => setCreatorChoice(opt)} className={`py-6 rounded-xl font-semibold capitalize ${creatorChoice === opt ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600'}`}>{opt}</button>
+                  <button 
+                    key={opt} 
+                    onClick={() => setCreatorChoice(opt)} 
+                    className={`py-6 rounded-xl font-semibold capitalize transition-colors ${
+                      creatorChoice === opt && opt === "blue" 
+                        ? 'bg-blue-600 text-white' 
+                        : creatorChoice === opt && opt === "yellow"
+                        ? 'bg-yellow-400 text-slate-900'
+                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {opt}
+                  </button>
                 ))}
               </div>
             )}
+            
             {gameType === "shuffle" && (
               <div className="grid grid-cols-3 gap-3">
                 {["cup_1", "cup_2", "cup_3"].map(opt => (
-                  <button key={opt} onClick={() => setCreatorChoice(opt)} className={`py-6 rounded-xl font-semibold capitalize ${creatorChoice === opt ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600'}`}>{opt.replace("_", " ")}</button>
+                  <button key={opt} onClick={() => setCreatorChoice(opt)} className={`py-6 rounded-xl font-semibold capitalize transition-colors ${creatorChoice === opt ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}>{opt.replace("_", " ")}</button>
                 ))}
               </div>
             )}

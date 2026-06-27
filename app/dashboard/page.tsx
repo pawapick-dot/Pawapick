@@ -1,5 +1,10 @@
 // app/dashboard/page.tsx
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 import { 
   TrendingUp, 
   Swords, 
@@ -8,125 +13,256 @@ import {
   LayoutGrid, 
   PlusSquare, 
   Wallet,
-  ChevronRight
+  ChevronRight,
+  Lock,
+  Activity
 } from "lucide-react";
 
+type RecentGame = {
+  id: string;
+  gameType: string;
+  opponent: string;
+  stakeAmount: number;
+  payout: number;
+  won: boolean;
+  choice: string;
+};
+
 export default function Dashboard() {
+  const { user, loading: authLoading, openAuthModal } = useAuth();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  
+  const [stats, setStats] = useState({
+    winRate: 0,
+    totalMatches: 0,
+    activeEscrows: 0,
+    wins: 0,
+    recentGames: [] as RecentGame[]
+  });
+  const [isFetchingStats, setIsFetchingStats] = useState(true);
+
+  // Fetch live stats
+  const fetchDashboardStats = useCallback(async () => {
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/dashboard", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStats(data);
+      }
+    } catch (err) {
+      toast.error("Failed to sync arena telemetry.");
+    } finally {
+      setIsFetchingStats(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      fetchDashboardStats();
+    } else if (!authLoading && !user) {
+      setIsFetchingStats(false);
+    }
+  }, [user, authLoading, fetchDashboardStats]);
+
+  // Auto-scrolling logic for the mobile swiper
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || isHovered || isFetchingStats || !user) return;
+
+    let animationFrameId: number;
+    let direction = 1;
+
+    const scroll = () => {
+      if (el.scrollWidth > el.clientWidth) {
+        if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 1) direction = -1;
+        if (el.scrollLeft <= 0) direction = 1;
+        el.scrollLeft += direction * 0.5;
+      }
+      animationFrameId = requestAnimationFrame(scroll);
+    };
+
+    animationFrameId = requestAnimationFrame(scroll);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isHovered, isFetchingStats, user]);
+
+  // Loading State
+  if (authLoading || (isFetchingStats && user)) {
+    return (
+      <div className="w-full max-w-7xl mx-auto p-4 animate-pulse space-y-8 mt-6">
+        <div className="h-12 bg-gray-200 w-1/3 rounded-none"></div>
+        <div className="grid grid-cols-4 gap-8">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-32 bg-gray-100 rounded-none border-2 border-gray-200"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Secured Locked State
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-4">
+        <div className="w-20 h-20 bg-gray-900 flex items-center justify-center mb-6 rounded-none shadow-[8px_8px_0px_0px_rgba(250,204,21,1)] border-2 border-black">
+          <Lock size={32} className="text-yellow-400" />
+        </div>
+        <h1 className="text-4xl font-black text-gray-900 tracking-tight uppercase">Arena Locked</h1>
+        <p className="text-gray-500 font-medium mt-3 max-w-sm">
+          You must authenticate your identity to access the command center and view your escrow statistics.
+        </p>
+        <button 
+          onClick={openAuthModal}
+          className="mt-8 bg-yellow-400 text-black font-black uppercase tracking-widest text-sm px-10 py-5 rounded-none border-2 border-black hover:bg-yellow-500 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all"
+        >
+          Verify Identity
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 mt-4 pb-12">
+    <div className="w-full max-w-7xl mx-auto space-y-10 mt-6 pb-12">
       
       {/* Welcome Header */}
-      <div className="px-2">
-        <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Welcome back, PawaPlayer</h1>
-        <p className="text-sm text-gray-500 font-medium">Here is your arena overview.</p>
+      <div className="px-4 border-l-4 border-yellow-400 pl-4">
+        <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase">
+          {user.displayName ? `Agent ${user.displayName}` : "Command Center"}
+        </h1>
+        <p className="text-sm text-gray-500 font-medium tracking-wide mt-1">
+          SYSTEM STATUS: <span className="text-green-600 font-bold">ONLINE</span>
+        </p>
       </div>
 
-      {/* Stats Swiper (Mobile) / Bento Grid (Desktop) */}
-      <div className="flex gap-4 overflow-x-auto hide-scrollbar px-2 md:grid md:grid-cols-4 md:overflow-visible">
+      {/* Top Stats: Swiper (Mobile) / Max-4 Bento Grid (Desktop) */}
+      <div 
+        ref={scrollRef}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onTouchStart={() => setIsHovered(true)}
+        onTouchEnd={() => setIsHovered(false)}
+        className="flex gap-4 overflow-x-auto hide-scrollbar px-4 md:grid md:grid-cols-4 md:gap-8 md:overflow-visible"
+      >
+        <div className="min-w-[160px] bg-gray-50 border-2 border-gray-200 rounded-none p-6 flex-1 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+            <TrendingUp size={48} className="text-black" />
+          </div>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Win Rate</p>
+          <p className="text-4xl font-black text-gray-900 mt-2">{stats.winRate}%</p>
+        </div>
+
+        <div className="min-w-[160px] bg-gray-50 border-2 border-gray-200 rounded-none p-6 flex-1 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+            <Swords size={48} className="text-black" />
+          </div>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Matches</p>
+          <p className="text-4xl font-black text-gray-900 mt-2">{stats.totalMatches}</p>
+        </div>
+
+        <div className="min-w-[160px] bg-gray-50 border-2 border-gray-200 rounded-none p-6 flex-1 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+            <Clock size={48} className="text-black" />
+          </div>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Escrow</p>
+          <p className="text-4xl font-black text-gray-900 mt-2">{stats.activeEscrows}</p>
+        </div>
+
+        <div className="min-w-[160px] bg-gray-900 border-2 border-black rounded-none p-6 flex-1 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+            <Activity size={48} className="text-yellow-400" />
+          </div>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Global Rank</p>
+          <p className="text-4xl font-black text-yellow-400 mt-2">
+            #{Math.max(1, 1000 - stats.wins * 5)}
+          </p>
+        </div>
+      </div>
+
+      {/* Quick Links Grid */}
+      <div className="px-4">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-2 h-2 bg-yellow-400"></div>
+          <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Operations</h3>
+        </div>
         
-        <div className="min-w-[140px] bg-white border border-gray-100 rounded-3xl p-5 shadow-sm flex-1">
-          <div className="w-8 h-8 rounded-full bg-yellow-50 flex items-center justify-center mb-3">
-            <TrendingUp size={16} className="text-yellow-600" />
-          </div>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Win Rate</p>
-          <p className="text-2xl font-black text-gray-900 mt-1">68%</p>
-        </div>
-
-        <div className="min-w-[140px] bg-white border border-gray-100 rounded-3xl p-5 shadow-sm flex-1">
-          <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center mb-3">
-            <Swords size={16} className="text-gray-900" />
-          </div>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Matches Played</p>
-          <p className="text-2xl font-black text-gray-900 mt-1">24</p>
-        </div>
-
-        <div className="min-w-[140px] bg-white border border-gray-100 rounded-3xl p-5 shadow-sm flex-1">
-          <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center mb-3">
-            <Clock size={16} className="text-gray-900" />
-          </div>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Active Escrows</p>
-          <p className="text-2xl font-black text-gray-900 mt-1">2</p>
-        </div>
-
-      </div>
-
-      {/* Quick Links Bento Grid */}
-      <div className="px-2 mt-8">
-        <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">Quick Actions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-6">
-          
-          <Link href="/feed" className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm hover:border-yellow-200 hover:shadow-md transition group flex flex-col justify-between aspect-square">
-            <LayoutGrid size={24} className="text-gray-400 group-hover:text-yellow-500 transition" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+          <Link href="/feed" className="bg-white border-2 border-gray-200 rounded-none p-6 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all group flex flex-col justify-between aspect-square">
+            <LayoutGrid size={28} className="text-gray-400 group-hover:text-black transition" />
             <div>
-              <p className="font-bold text-gray-900">Live Feed</p>
-              <p className="text-[10px] text-gray-500">Find matches</p>
+              <p className="font-black text-gray-900 uppercase tracking-wide">Live Feed</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase">Find Matches</p>
             </div>
           </Link>
 
-          <Link href="/create" className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm hover:border-yellow-200 hover:shadow-md transition group flex flex-col justify-between aspect-square">
-            <PlusSquare size={24} className="text-gray-400 group-hover:text-yellow-500 transition" />
+          <Link href="/create" className="bg-white border-2 border-gray-200 rounded-none p-6 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all group flex flex-col justify-between aspect-square">
+            <PlusSquare size={28} className="text-gray-400 group-hover:text-black transition" />
             <div>
-              <p className="font-bold text-gray-900">Create</p>
-              <p className="text-[10px] text-gray-500">Set a trap</p>
+              <p className="font-black text-gray-900 uppercase tracking-wide">Create</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase">Set a Trap</p>
             </div>
           </Link>
 
-          <Link href="/wallet" className="bg-gray-900 rounded-3xl p-5 shadow-sm hover:bg-black transition group flex flex-col justify-between aspect-square">
-            <Wallet size={24} className="text-yellow-400" />
+          <Link href="/wallet" className="bg-yellow-400 border-2 border-black rounded-none p-6 hover:bg-yellow-500 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all group flex flex-col justify-between aspect-square">
+            <Wallet size={28} className="text-black" />
             <div>
-              <p className="font-bold text-white">Wallet</p>
-              <p className="text-[10px] text-gray-400">Manage funds</p>
+              <p className="font-black text-black uppercase tracking-wide">Wallet</p>
+              <p className="text-[10px] font-bold text-gray-800 uppercase">Manage Funds</p>
             </div>
           </Link>
 
-          <Link href="#" className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm hover:border-yellow-200 hover:shadow-md transition group flex flex-col justify-between aspect-square opacity-60">
-            <History size={24} className="text-gray-400 group-hover:text-yellow-500 transition" />
+          <Link href="#" className="bg-gray-50 border-2 border-gray-200 rounded-none p-6 opacity-60 flex flex-col justify-between aspect-square cursor-not-allowed">
+            <History size={28} className="text-gray-400" />
             <div>
-              <p className="font-bold text-gray-900">History</p>
-              <p className="text-[10px] text-gray-500">Coming soon</p>
+              <p className="font-black text-gray-900 uppercase tracking-wide">History</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase">Full Ledger</p>
             </div>
           </Link>
-
         </div>
       </div>
 
-      {/* Recent Activity Widget */}
-      <div className="px-2 mt-6">
-        <div className="bg-white border border-gray-100 rounded-3xl p-1 shadow-sm">
-          <div className="flex items-center justify-between p-4 border-b border-gray-50">
-            <span className="font-bold text-gray-900">Recent Games</span>
-            <button className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center">
-              View All <ChevronRight size={14} />
-            </button>
+      {/* Recent Activity List */}
+      <div className="px-4">
+        <div className="bg-white border-2 border-gray-200 rounded-none">
+          <div className="flex items-center justify-between p-5 border-b-2 border-gray-200 bg-gray-50">
+            <span className="font-black text-gray-900 uppercase tracking-wider text-sm">Recent Conflicts</span>
+            <Link href="/wallet" className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center hover:text-black transition">
+              View Ledger <ChevronRight size={14} />
+            </Link>
           </div>
           
-          <div className="p-2 space-y-1">
-            {/* Placeholder Game Items */}
-            <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 transition cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center border border-green-100">
-                  <span className="text-green-600 font-bold text-xs">WIN</span>
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-gray-900">Penalty Shootout</p>
-                  <p className="text-[10px] text-gray-400">vs. Alex99</p>
-                </div>
+          <div className="divide-y-2 divide-gray-100">
+            {stats.recentGames.length === 0 ? (
+              <div className="p-8 text-center text-[10px] font-black tracking-widest text-gray-400 uppercase">
+                No recent combat data found.
               </div>
-              <p className="font-bold text-gray-900">+4,500 <span className="text-[10px] text-gray-400">UGX</span></p>
-            </div>
-
-            <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 transition cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center border border-red-100">
-                  <span className="text-red-600 font-bold text-xs">LOSS</span>
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-gray-900">Color Minefield</p>
-                  <p className="text-[10px] text-gray-400">vs. SarahG</p>
-                </div>
-              </div>
-              <p className="font-bold text-gray-900">-2,000 <span className="text-[10px] text-gray-400">UGX</span></p>
-            </div>
+            ) : (
+              stats.recentGames.map((game) => (
+                <Link href={`/verify/${game.id}`} key={game.id} className="flex items-center justify-between p-5 hover:bg-gray-50 transition block">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 flex items-center justify-center border-2 rounded-none ${
+                      game.won ? 'bg-green-50 border-green-200 text-green-600' : 'bg-red-50 border-red-200 text-red-600'
+                    }`}>
+                      <span className="font-black text-[10px] tracking-widest">
+                        {game.won ? 'WIN' : 'LOSS'}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-gray-900 uppercase tracking-wide">{game.gameType.replace("_", " ")}</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">
+                        Target: {game.choice} • vs. {game.opponent}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="font-black text-gray-900">
+                    {game.payout > 0 ? '+' : ''}{game.payout.toLocaleString()} <span className="text-[10px] text-gray-400">UGX</span>
+                  </p>
+                </Link>
+              ))
+            )}
           </div>
         </div>
       </div>

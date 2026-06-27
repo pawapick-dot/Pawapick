@@ -20,7 +20,10 @@ export async function generateMetadata({
     }
 
     const game = gameDoc.data()!;
-    const gameName = game.gameType.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase());
+    
+    // FIX: Added explicit (l: string) type to satisfy strict TypeScript checks
+    const gameName = game.gameType.replace("_", " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
+    
     const prize = (game.stakeAmount * 2 * 0.9).toLocaleString();
 
     // Format the text that will appear in WhatsApp, iMessage, and Twitter
@@ -35,18 +38,6 @@ export async function generateMetadata({
         description,
         siteName: "Pawa Pick",
         type: "website",
-        // OPTIONAL: If you design a nice 1200x630 banner image for your platform, 
-        // put it in the /public folder and uncomment this section:
-        /*
-        images: [
-          {
-            url: "/social-banner.jpg", // e.g., your domain + /social-banner.jpg
-            width: 1200,
-            height: 630,
-            alt: "Pawa Pick Prediction Network",
-          }
-        ],
-        */
       },
       twitter: {
         card: "summary_large_image",

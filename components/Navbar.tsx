@@ -8,14 +8,18 @@ import { useAuth } from "@/context/AuthContext";
 import { 
   Menu, X, LayoutGrid, Plus, Wallet, ShieldCheck, 
   LayoutDashboard, ChevronDown, History as HistoryIcon, 
-  Info, HelpCircle, Mail, FileText, Eye, EyeOff 
+  Info, HelpCircle, Mail, FileText, Eye, EyeOff, ShieldAlert 
 } from "lucide-react";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [showBalance, setShowBalance] = useState(false);
   const pathname = usePathname();
-  const { user, openAuthModal } = useAuth();
+  
+  const auth = useAuth() as any;
+  const { user, openAuthModal } = auth;
+  // Safely check for admin status
+  const isAdmin = auth.isAdmin || user?.role === "admin";
 
   const closeMenu = () => setIsOpen(false);
 
@@ -24,13 +28,17 @@ export default function Navbar() {
     closeMenu();
   }, [pathname]);
 
-  // Centralized Navigation Configuration
+  // Completely hide Navbar on the Admin side so the AdminLayout handles navigation
+  if (pathname.startsWith("/admin")) return null;
+
+  // Centralized Navigation Configuration (Admin link conditionally injected)
   const navLinks = [
     { href: "/feed", label: "Live Markets", icon: LayoutGrid, isProtected: false },
     { href: "/create", label: "Create Forecast", icon: Plus, isProtected: true },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, isProtected: true },
     { href: "/history", label: "Match Ledger", icon: HistoryIcon, isProtected: true },
     { href: "/wallet", label: "Wallet", icon: Wallet, isProtected: true },
+    ...(isAdmin ? [{ href: "/admin", label: "Admin Console", icon: ShieldAlert, isProtected: true }] : []),
     { href: "/verify", label: "Trust Center", icon: ShieldCheck, isProtected: false },
     { href: "/how-to", label: "How to Play", icon: HelpCircle, isProtected: false },
     { href: "/about", label: "About Us", icon: Info, isProtected: false },
@@ -113,6 +121,18 @@ export default function Navbar() {
             <div>
               {user ? (
                 <div className="flex items-center gap-1">
+                  
+                  {/* Desktop Admin Quick Link */}
+                  {isAdmin && (
+                    <Link 
+                      href="/admin" 
+                      className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors mr-1 border border-rose-100"
+                    >
+                      <ShieldAlert size={14} />
+                      Admin
+                    </Link>
+                  )}
+
                   <Link href="/history" className="hidden lg:flex px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
                     History
                   </Link>
@@ -217,8 +237,8 @@ export default function Navbar() {
             const Icon = link.icon;
             const isActive = pathname === link.href;
 
-            // Render divider above Resources
-            const showDivider = link.label === "Trust Center";
+            // Render divider above Resources or Admin section for separation
+            const showDivider = link.label === "Trust Center" || link.label === "Admin Console";
 
             // If route is protected and user is not logged in, trigger Modal
             if (link.isProtected && !user) {
@@ -246,10 +266,12 @@ export default function Navbar() {
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors font-semibold ${
                     isActive 
                       ? "bg-blue-50 text-blue-600" 
+                      : link.label === "Admin Console"
+                      ? "text-rose-600 hover:bg-rose-50"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >
-                  <Icon size={18} className={isActive ? "text-blue-600" : "text-slate-400"} />
+                  <Icon size={18} className={isActive ? "text-blue-600" : link.label === "Admin Console" ? "text-rose-500" : "text-slate-400"} />
                   {link.label}
                 </Link>
               </div>

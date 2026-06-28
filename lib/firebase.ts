@@ -1,6 +1,7 @@
 // lib/firebase.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore"; // Added Firestore import
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,7 +14,13 @@ const firebaseConfig = {
 
 // Prevent Next.js from initializing multiple times during hot reloads
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+// Initialize Auth
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-export { app, auth, googleProvider };
+// Initialize Firestore
+const db = getFirestore(app); // Added Firestore initialization
+
+// Export db along with the others
+export { app, auth, googleProvider, db };

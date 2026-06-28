@@ -3,7 +3,8 @@ import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
-import { sendTemplateEmail, EMAIL_TEMPLATES } from "@/lib/email";
+import { sendCustomEmail } from "@/lib/email";
+import { Templates } from "@/lib/email-templates";
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
     // 2. Run Secure Transaction
     const result = await db.runTransaction(async (transaction) => {
       const userDoc = await transaction.get(userRef);
-      
+
       let currentBalance = 0;
       let userData: any = {};
 
@@ -62,16 +63,14 @@ export async function POST(request: Request) {
 
     // 3. Trigger Brevo Email (Asynchronous)
     if (result.email) {
-      sendTemplateEmail({
+      sendCustomEmail({
         toEmail: result.email,
         toName: result.name,
-        templateId: EMAIL_TEMPLATES.DEPOSIT_SUCCESS,
-        params: {
-          amount: depositAmount.toLocaleString(),
-          currency: "UGX",
-          new_balance: result.newBalance.toLocaleString(),
-          reference_id: result.transactionId
-        }
+        subject: "Deposit Successful - Pawa Pick",
+        htmlContent: Templates.DepositSuccess(
+          depositAmount.toLocaleString(), 
+          result.newBalance.toLocaleString()
+        )
       }).catch((err) => console.error("Failed to send deposit email:", err));
     }
 

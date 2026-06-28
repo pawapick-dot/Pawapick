@@ -15,9 +15,11 @@ import { auth, db } from "@/lib/firebase"; // Adjust import path based on your s
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isModalOpen: boolean;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   openAuthModal: () => void;
+  closeAuthModal: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -83,12 +85,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const openAuthModal = () => setIsModalOpen(true);
+  const closeAuthModal = () => setIsModalOpen(false);
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginWithGoogle, logout, openAuthModal }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      isModalOpen, 
+      loginWithGoogle, 
+      logout, 
+      openAuthModal, 
+      closeAuthModal 
+    }}>
       {children}
-      {/* Assuming your AuthModal is rendered elsewhere and listens to a global state, 
-          or you can render it conditionally here based on isModalOpen */}
     </AuthContext.Provider>
   );
 }

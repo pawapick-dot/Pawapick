@@ -1,6 +1,6 @@
-// app/api/email/welcome/route.ts
 import { NextResponse } from "next/server";
-import { sendTemplateEmail, EMAIL_TEMPLATES } from "@/lib/email";
+import { sendCustomEmail } from "@/lib/email";
+import { Templates } from "@/lib/email-templates";
 
 export async function POST(request: Request) {
   try {
@@ -10,15 +10,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    // Trigger the Brevo template
-    const success = await sendTemplateEmail({
+    const success = await sendCustomEmail({
       toEmail: email,
       toName: name || "Player",
-      templateId: EMAIL_TEMPLATES.WELCOME,
-      params: {
-        // Add any dynamic variables your Brevo Welcome template expects
-        login_url: "https://pawapick.com"
-      }
+      subject: "Welcome to Pawa Pick!",
+      htmlContent: Templates.Welcome(name || "Player")
     });
 
     if (!success) throw new Error("Failed to send welcome email");

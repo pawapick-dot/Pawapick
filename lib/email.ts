@@ -2,31 +2,20 @@
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY!;
 const BREVO_URL = "https://api.brevo.com/v3/smtp/email";
-
-// You will replace these with the actual Template IDs from your Brevo Dashboard
-export const EMAIL_TEMPLATES = {
-  WELCOME: 1,
-  DEPOSIT_SUCCESS: 2,
-  CHALLENGE_ACCEPTED: 3,
-  GAME_RESULT_WON: 4,
-  GAME_RESULT_LOST: 5,
-  REFUND_ISSUED: 6,
-  WITHDRAWAL_REQUESTED: 7,
-  WITHDRAWAL_APPROVED: 8,
-  WITHDRAWAL_REJECTED: 9,
-};
+const SENDER_EMAIL = "support@pawapick.com"; // Change this to your actual verified domain email
+const SENDER_NAME = "Pawa Pick";
 
 type SendEmailProps = {
   toEmail: string;
   toName: string;
-  templateId: number;
-  params?: Record<string, any>; // Dynamic data to inject into the Brevo template
+  subject: string;
+  htmlContent: string;
 };
 
 /**
- * Universal function to trigger a Brevo transactional email template
+ * Universal function to trigger a raw HTML email via Brevo
  */
-export async function sendTemplateEmail({ toEmail, toName, templateId, params = {} }: SendEmailProps) {
+export async function sendCustomEmail({ toEmail, toName, subject, htmlContent }: SendEmailProps) {
   if (!BREVO_API_KEY) {
     console.error("BREVO_API_KEY is missing from environment variables.");
     return false;
@@ -41,10 +30,10 @@ export async function sendTemplateEmail({ toEmail, toName, templateId, params = 
         "api-key": BREVO_API_KEY,
       },
       body: JSON.stringify({
+        sender: { name: SENDER_NAME, email: SENDER_EMAIL },
         to: [{ email: toEmail, name: toName }],
-        templateId: templateId,
-        params: params, 
-        // Example params: { amount: "5,000", currency: "UGX", opponent: "David" }
+        subject: subject,
+        htmlContent: htmlContent,
       }),
     });
 

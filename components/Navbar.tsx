@@ -42,66 +42,66 @@ export default function Navbar() {
     <>
       {/* Sticky Header Group wrapping both Navs */}
       <header className="sticky top-0 z-40 flex flex-col shadow-sm">
-        
-        {/* Main Top Navbar (Reduced Height: h-14) */}
+
+        {/* Main Top Navbar (Significantly Reduced Height: h-12) */}
         <nav className="w-full bg-white/95 backdrop-blur-md border-b border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
 
             {/* LEFT: Hamburger (Mobile) + Logo */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button 
                 onClick={() => setIsOpen(true)}
-                className="md:hidden p-1.5 -ml-1.5 text-slate-500 hover:text-slate-900 transition-colors rounded-lg"
+                className="md:hidden p-1 -ml-1 text-slate-500 hover:text-slate-900 transition-colors rounded-lg"
                 aria-label="Open Menu"
               >
-                <Menu size={22} strokeWidth={2.5} />
+                <Menu size={20} strokeWidth={2.5} />
               </button>
 
-              <Link href="/" className="font-extrabold text-lg md:text-xl tracking-tight" onClick={closeMenu}>
+              <Link href="/" className="font-extrabold text-base md:text-lg tracking-tight" onClick={closeMenu}>
                 <span className="text-slate-900">Pawa-</span>
                 <span className="text-blue-600">Pick</span>
               </Link>
 
               {/* DESKTOP: Primary Links & Hover Dropdown */}
-              <div className="hidden md:flex items-center gap-1 ml-6">
-                <Link href="/feed" className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors ${pathname === "/feed" ? "text-blue-600 bg-blue-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+              <div className="hidden md:flex items-center gap-1 ml-4">
+                <Link href="/feed" className={`px-2.5 py-1 text-xs md:text-sm font-semibold rounded-lg transition-colors ${pathname === "/feed" ? "text-blue-600 bg-blue-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                   Markets
                 </Link>
-                
+
                 {/* Protected Desktop Create Link */}
                 {user ? (
-                  <Link href="/create" className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors ${pathname === "/create" ? "text-blue-600 bg-blue-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
+                  <Link href="/create" className={`px-2.5 py-1 text-xs md:text-sm font-semibold rounded-lg transition-colors ${pathname === "/create" ? "text-blue-600 bg-blue-50" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"}`}>
                     Create
                   </Link>
                 ) : (
-                  <button onClick={openAuthModal} className="px-3 py-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
+                  <button onClick={openAuthModal} className="px-2.5 py-1 text-xs md:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
                     Create
                   </button>
                 )}
 
                 {/* Hover Dropdown Menu for Info Links */}
                 <div className="relative group">
-                  <button className="flex items-center gap-1 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
+                  <button className="flex items-center gap-1 px-2.5 py-1 text-xs md:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
                     Resources <ChevronDown size={14} className="text-slate-400 group-hover:rotate-180 transition-transform duration-200" />
                   </button>
 
                   {/* Dropdown Content */}
-                  <div className="absolute left-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    <div className="w-48 bg-white border border-slate-200 rounded-xl py-2 flex flex-col shadow-lg">
-                      <Link href="/verify" className="flex items-center gap-3 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                        <ShieldCheck size={16} /> Trust Center
+                  <div className="absolute left-0 top-full pt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="w-48 bg-white border border-slate-200 rounded-xl py-1.5 flex flex-col shadow-lg">
+                      <Link href="/verify" className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                        <ShieldCheck size={14} /> Trust Center
                       </Link>
-                      <Link href="/how-to" className="flex items-center gap-3 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                        <HelpCircle size={16} /> How to Play
+                      <Link href="/how-to" className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                        <HelpCircle size={14} /> How to Play
                       </Link>
-                      <Link href="/about" className="flex items-center gap-3 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                        <Info size={16} /> About Us
+                      <Link href="/about" className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                        <Info size={14} /> About Us
                       </Link>
-                      <Link href="/contact" className="flex items-center gap-3 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                        <Mail size={16} /> Contact
+                      <Link href="/contact" className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                        <Mail size={14} /> Contact
                       </Link>
-                      <Link href="/policy" className="flex items-center gap-3 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                        <FileText size={16} /> Policy
+                      <Link href="/policy" className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                        <FileText size={14} /> Policy
                       </Link>
                     </div>
                   </div>
@@ -113,24 +113,24 @@ export default function Navbar() {
             <div>
               {user ? (
                 <div className="flex items-center gap-1">
-                  <Link href="/history" className="hidden lg:flex px-3 py-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
+                  <Link href="/history" className="hidden lg:flex px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
                     History
                   </Link>
-                  <Link href="/wallet" className="hidden lg:flex px-3 py-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors mr-2">
+                  <Link href="/wallet" className="hidden lg:flex px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors mr-2">
                     Wallet
                   </Link>
                   <Link 
                     href="/dashboard" 
-                    className="flex items-center gap-2 bg-blue-600 text-white font-semibold text-sm px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+                    className="flex items-center gap-1.5 bg-blue-600 text-white font-semibold text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                   >
-                    <LayoutDashboard size={16} />
+                    <LayoutDashboard size={14} />
                     <span className="hidden sm:inline">Dashboard</span>
                   </Link>
                 </div>
               ) : (
                 <button 
                   onClick={openAuthModal}
-                  className="bg-slate-900 text-white font-semibold text-sm px-5 py-2 rounded-xl hover:bg-slate-800 transition-colors shadow-sm active:scale-95"
+                  className="bg-slate-900 text-white font-semibold text-xs px-4 py-1.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm active:scale-95"
                 >
                   Login
                 </button>
@@ -140,40 +140,40 @@ export default function Navbar() {
           </div>
         </nav>
 
-        {/* Secondary Sub-Nav for Balance (Reduced Height: h-12) */}
+        {/* Secondary Sub-Nav for Balance (Significantly Reduced Height: h-10) */}
         {user && (
           <div className="w-full bg-slate-50 border-b border-slate-200">
-            <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
-              
+            <div className="max-w-7xl mx-auto px-4 h-10 flex items-center justify-between">
+
               {/* Left Side: Welcome Greeting */}
               <div className="flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
+                <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span className="text-xs font-bold text-slate-600 tracking-wide">
+                <span className="text-[10px] md:text-xs font-bold text-slate-600 tracking-wide truncate max-w-[120px] md:max-w-xs">
                   Welcome, {user.displayName?.split(" ")[0] || "Player"}
                 </span>
               </div>
 
               {/* Right Side: Wallet Balance Pill */}
-              <div className="flex items-center bg-white border border-slate-200 rounded-full pl-3 pr-1 py-1 shadow-sm">
+              <div className="flex items-center bg-white border border-slate-200 rounded-full pl-2.5 pr-1 py-0.5 shadow-sm">
                 <button 
                   onClick={() => setShowBalance(!showBalance)} 
-                  className="text-slate-400 hover:text-slate-600 transition-colors mr-2 focus:outline-none"
+                  className="text-slate-400 hover:text-slate-600 transition-colors mr-1.5 focus:outline-none"
                   title={showBalance ? "Hide Balance" : "Show Balance"}
                 >
-                  {showBalance ? <Eye size={16} /> : <EyeOff size={16} />}
+                  {showBalance ? <Eye size={14} /> : <EyeOff size={14} />}
                 </button>
-                <span className="text-sm font-extrabold text-slate-900 mr-3">
+                <span className="text-xs md:text-sm font-extrabold text-slate-900 mr-2 tracking-tight">
                   {showBalance ? "UGX 0.00" : "UGX ****"}
                 </span>
                 <Link 
                   href="/wallet" 
-                  className="bg-emerald-500 text-white p-1.5 rounded-full hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center"
+                  className="bg-emerald-500 text-white p-1 rounded-full hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center"
                   title="Deposit Funds"
                 >
-                  <Plus size={16} strokeWidth={3} />
+                  <Plus size={14} strokeWidth={3} />
                 </Link>
               </div>
 
@@ -216,7 +216,7 @@ export default function Navbar() {
           {navLinks.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href;
-            
+
             // Render divider above Resources
             const showDivider = link.label === "Trust Center";
 

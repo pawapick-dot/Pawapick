@@ -1,0 +1,8 @@
+export const EMAIL_TEMPLATES = {
+  WELCOME: 1,
+  LOGIN_NEW_DEVICE: 2,
+  TOP_UP_SUCCESS: 3,
+  WITHDRAWAL_REQUESTED: 4,
+  WITHDRAWAL_PROCESSED: 5,
+  GAME_PLAYED_MILESTONE: 6, // E.g., 100th game played
+} as const;

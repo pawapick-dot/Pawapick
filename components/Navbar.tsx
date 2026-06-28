@@ -15,7 +15,7 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [showBalance, setShowBalance] = useState(false);
   const pathname = usePathname();
-  
+
   const auth = useAuth() as any;
   const { user, openAuthModal } = auth;
   // Safely check for admin status
@@ -117,11 +117,11 @@ export default function Navbar() {
               </div>
             </div>
 
-            {/* RIGHT: Login / Protected Actions */}
+            {/* RIGHT: Login & Register / Protected Actions */}
             <div>
               {user ? (
                 <div className="flex items-center gap-1">
-                  
+
                   {/* Desktop Admin Quick Link */}
                   {isAdmin && (
                     <Link 
@@ -148,12 +148,20 @@ export default function Navbar() {
                   </Link>
                 </div>
               ) : (
-                <button 
-                  onClick={openAuthModal}
-                  className="bg-slate-900 text-white font-semibold text-xs px-4 py-1.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm active:scale-95"
-                >
-                  Login
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button 
+                    onClick={openAuthModal}
+                    className="text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-semibold text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                  >
+                    Login
+                  </button>
+                  <button 
+                    onClick={openAuthModal}
+                    className="bg-slate-900 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm active:scale-95"
+                  >
+                    Register
+                  </button>
+                </div>
               )}
             </div>
 

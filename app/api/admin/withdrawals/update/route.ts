@@ -1,9 +1,11 @@
+// app/api/admin/withdrawals/update/route.ts
 import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
 import { sendCustomEmail } from "@/lib/email";
 import { Templates } from "@/lib/email-templates";
+import { sendMoney } from "@/lib/marzpay"; // Import the MarzPay utility
 
 export async function POST(request: Request) {
   try {
@@ -21,21 +23,40 @@ export async function POST(request: Request) {
     }
 
     const withdrawalRef = db.collection("withdrawals").doc(withdrawalId);
+    const withdrawalDoc = await withdrawalRef.get();
+    
+    if (!withdrawalDoc.exists) {
+      return NextResponse.json({ error: "Withdrawal not found" }, { status: 404 });
+    }
+    
+    const withdrawalData = withdrawalDoc.data()!;
+    if (withdrawalData.status !== "pending") {
+      return NextResponse.json({ error: `Withdrawal is already ${withdrawalData.status}` }, { status: 400 });
+    }
 
-    const result = await db.runTransaction(async (transaction) => {
-      const withdrawalDoc = await transaction.get(withdrawalRef);
-      if (!withdrawalDoc.exists) throw new Error("Withdrawal not found");
-
-      const withdrawalData = withdrawalDoc.data()!;
-      if (withdrawalData.status !== "pending") {
-        throw new Error(`Withdrawal is already ${withdrawalData.status}`);
+    // 1. IF APPROVE: Call MarzPay immediately BEFORE locking the database
+    if (action === "approve") {
+      try {
+        await sendMoney({
+          amount: withdrawalData.amount,
+          phoneNumber: withdrawalData.phoneNumber,
+          reference: withdrawalId, // This is now a valid UUID from our updated request route
+          description: "Pawa Pick Withdrawal",
+        });
+      } catch (marzErr: any) {
+        return NextResponse.json({ error: `MarzPay Error: ${marzErr.message}` }, { status: 500 });
       }
+    }
 
+    // 2. Run Secure Transaction to finalize the records
+    const result = await db.runTransaction(async (transaction) => {
       const userRef = db.collection("users").doc(withdrawalData.userId);
       const userDoc = await transaction.get(userRef);
       const userData = userDoc.data() || {};
       
-      const newStatus = action === "approve" ? "approved" : "rejected";
+      // If approved, we mark as processing (MarzPay webhook will mark as completed)
+      // If rejected, we mark as rejected.
+      const newStatus = action === "approve" ? "processing" : "rejected";
       const timestamp = admin.firestore.FieldValue.serverTimestamp();
 
       transaction.update(withdrawalRef, {
@@ -45,10 +66,7 @@ export async function POST(request: Request) {
       });
 
       const relatedTxQuery = await db.collection("transactions")
-        .where("uid", "==", withdrawalData.userId)
-        .where("type", "==", "withdrawal_request")
-        .where("amount", "==", -withdrawalData.amount)
-        .where("status", "==", "pending")
+        .where("id", "==", withdrawalId)
         .limit(1)
         .get();
 
@@ -81,8 +99,8 @@ export async function POST(request: Request) {
     });
 
     if (result.email) {
-      const subject = result.status === "approved" ? "Withdrawal Approved" : "Withdrawal Rejected";
-      const htmlContent = result.status === "approved" 
+      const subject = result.status === "processing" ? "Withdrawal Approved" : "Withdrawal Rejected";
+      const htmlContent = result.status === "processing" 
         ? Templates.WithdrawalApproved(result.amount.toLocaleString())
         : Templates.WithdrawalRejected(result.amount.toLocaleString(), rejectionReason || "");
 
@@ -91,7 +109,7 @@ export async function POST(request: Request) {
         toName: result.name,
         subject: `${subject} - Pawa Pick`,
         htmlContent: htmlContent
-      }).catch((err) => console.error(`Failed to send ${result.status} email:`, err));
+      }).catch(console.error);
     }
 
     return NextResponse.json({ success: true, status: result.status });

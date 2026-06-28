@@ -1,13 +1,12 @@
-// app/api/games/cancel/route.ts
 import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
-import { sendTemplateEmail, EMAIL_TEMPLATES } from "@/lib/email";
+import { sendCustomEmail } from "@/lib/email";
+import { Templates } from "@/lib/email-templates";
 
 export async function POST(request: Request) {
   try {
-    // 1. Verify User
     const uid = await verifyToken(request);
     if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -17,7 +16,6 @@ export async function POST(request: Request) {
     const gameRef = db.collection("games").doc(gameId);
     const userRef = db.collection("users").doc(uid);
 
-    // 2. Run Secure Transaction
     const result = await db.runTransaction(async (transaction) => {
       const gameDoc = await transaction.get(gameRef);
       if (!gameDoc.exists) throw new Error("Game not found");
@@ -34,10 +32,8 @@ export async function POST(request: Request) {
       const newBalance = currentBalance + refundAmount;
       const timestamp = admin.firestore.FieldValue.serverTimestamp();
 
-      // Refund the wallet
       transaction.set(userRef, { walletBalance: newBalance }, { merge: true });
 
-      // Create Ledger Receipt for the refund
       const transactionRef = db.collection("transactions").doc();
       transaction.set(transactionRef, {
         id: transactionRef.id,
@@ -49,7 +45,6 @@ export async function POST(request: Request) {
         createdAt: timestamp
       });
 
-      // Mark game as cancelled
       transaction.update(gameRef, {
         status: "cancelled",
         resolvedAt: new Date().toISOString()
@@ -63,17 +58,15 @@ export async function POST(request: Request) {
       };
     });
 
-    // 3. Trigger Brevo Email (Asynchronous)
     if (result.email) {
-      sendTemplateEmail({
+      sendCustomEmail({
         toEmail: result.email,
         toName: result.name,
-        templateId: EMAIL_TEMPLATES.REFUND_ISSUED,
-        params: {
-          amount: result.refundAmount.toLocaleString(),
-          currency: "UGX",
-          new_balance: result.newBalance.toLocaleString()
-        }
+        subject: "Stake Refunded - Pawa Pick",
+        htmlContent: Templates.RefundIssued(
+          result.refundAmount.toLocaleString(),
+          result.newBalance.toLocaleString()
+        )
       }).catch((err) => console.error("Failed to send refund email:", err));
     }
 

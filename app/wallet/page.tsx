@@ -1,10 +1,13 @@
 // app/wallet/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowDownLeft, ArrowUpRight, History, ShieldCheck, Lock, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase"; 
 
 type Transaction = {
   id: string;
@@ -14,8 +17,11 @@ type Transaction = {
   status: string;
 };
 
-export default function WalletPage() {
+// We wrap the main content in a component so we can safely use useSearchParams in Next.js
+function WalletContent() {
   const { user, loading: authLoading, openAuthModal } = useAuth();
+  const searchParams = useSearchParams(); // Reads the URL parameters
+  
   const [balance, setBalance] = useState<number>(0);
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -27,22 +33,36 @@ export default function WalletPage() {
   const [provider, setProvider] = useState<"MTN" | "AIRTEL">("MTN");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  const fetchWalletData = useCallback(async () => {
+  // 1. Auto-open modal if triggered from Navbar
+  useEffect(() => {
+    if (searchParams.get("action") === "deposit") {
+      setActionType("deposit");
+    }
+  }, [searchParams]);
+
+  // 2. Real-time Balance Listener (Keeps the big number constantly updated)
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        setBalance(docSnap.data().walletBalance || 0);
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  // 3. Fetch Transaction History (Runs once on load, and manually after transactions)
+  const fetchHistory = useCallback(async () => {
     if (!user) return;
     try {
       const token = await user.getIdToken();
-      // Assuming your GET /api/wallet route returns { balance, history }
       const res = await fetch("/api/wallet", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const data = await res.json();
-
-      if (res.ok) {
-        setBalance(data.balance);
-        setHistory(data.history);
-      }
+      if (res.ok) setHistory(data.history || []);
     } catch (err) {
-      toast.error("Failed to sync secure wallet.");
+      console.error("Failed to fetch history");
     } finally {
       setLoading(false);
     }
@@ -50,11 +70,10 @@ export default function WalletPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      fetchWalletData();
+      fetchHistory();
     }
-  }, [user, authLoading, fetchWalletData]);
+  }, [user, authLoading, fetchHistory]);
 
-  // Format Ugandan phone numbers to MarzPay required format (+256xxxxxxxxx)
   const formatPhoneNumber = (number: string) => {
     let cleaned = number.replace(/\D/g, "");
     if (cleaned.startsWith("0")) cleaned = "256" + cleaned.slice(1);
@@ -79,9 +98,8 @@ export default function WalletPage() {
 
     try {
       const token = await user.getIdToken();
-      
       const payload: any = { amount: numAmount, phoneNumber: formattedPhone };
-      if (actionType === "withdraw") payload.provider = provider; // Required for withdrawals
+      if (actionType === "withdraw") payload.provider = provider;
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -93,17 +111,15 @@ export default function WalletPage() {
       });
 
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error || "Transaction failed");
 
       if (actionType === "deposit") {
         toast.success("Prompt sent! Check your phone to enter your PIN.", { duration: 5000 });
       } else {
         toast.success("Withdrawal requested successfully!");
-        setBalance(data.newBalance); // Instant optimistic update for withdrawals
       }
       
-      fetchWalletData(); // Refresh history
+      fetchHistory(); 
       closeModal();
     } catch (error: any) {
       toast.error(error.message || "Transaction failed.");
@@ -128,10 +144,7 @@ export default function WalletPage() {
           <Lock size={32} className="text-yellow-400" />
         </div>
         <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">Wallet Locked</h1>
-        <button 
-          onClick={openAuthModal}
-          className="mt-8 bg-yellow-400 text-black font-black uppercase tracking-widest text-sm px-10 py-5 rounded-none border-2 border-black hover:bg-yellow-500 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all"
-        >
+        <button onClick={openAuthModal} className="mt-8 bg-yellow-400 text-black font-black uppercase tracking-widest text-sm px-10 py-5 rounded-none border-2 border-black hover:bg-yellow-500 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all">
           Verify Identity
         </button>
       </div>
@@ -140,7 +153,6 @@ export default function WalletPage() {
 
   return (
     <div className="max-w-md mx-auto space-y-8 mt-6 pb-12 px-4 relative">
-
       {/* Wallet Balance Card */}
       <div className="bg-gray-900 rounded-none p-8 border-2 border-black relative overflow-hidden shadow-[8px_8px_0px_0px_rgba(250,204,21,1)]">
         <div className="relative z-10">
@@ -157,20 +169,13 @@ export default function WalletPage() {
 
       {/* Action Buttons */}
       <div className="grid grid-cols-2 gap-6">
-        <button
-          onClick={() => setActionType("deposit")}
-          className="bg-white border-2 border-gray-200 rounded-none p-5 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-1 active:shadow-none flex flex-col items-center justify-center gap-3 group"
-        >
+        <button onClick={() => setActionType("deposit")} className="bg-white border-2 border-gray-200 rounded-none p-5 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-1 active:shadow-none flex flex-col items-center justify-center gap-3 group">
           <div className="w-12 h-12 rounded-none bg-yellow-400 flex items-center justify-center border-2 border-black">
             <ArrowDownLeft size={24} className="text-black" />
           </div>
           <span className="font-black text-gray-900 uppercase tracking-wider text-xs">Top Up</span>
         </button>
-
-        <button
-          onClick={() => setActionType("withdraw")}
-          className="bg-white border-2 border-gray-200 rounded-none p-5 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-1 active:shadow-none flex flex-col items-center justify-center gap-3 group"
-        >
+        <button onClick={() => setActionType("withdraw")} className="bg-white border-2 border-gray-200 rounded-none p-5 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-1 active:shadow-none flex flex-col items-center justify-center gap-3 group">
           <div className="w-12 h-12 rounded-none bg-gray-100 flex items-center justify-center border-2 border-transparent group-hover:border-black transition">
             <ArrowUpRight size={24} className="text-gray-900" />
           </div>
@@ -184,7 +189,6 @@ export default function WalletPage() {
           <History size={18} className="text-black" />
           <span className="font-black text-gray-900 uppercase tracking-wider text-sm">Immutable Ledger</span>
         </div>
-
         <div className="divide-y-2 divide-gray-50">
           {history.length === 0 ? (
             <div className="p-8 text-center text-gray-400 font-bold uppercase tracking-widest text-[10px]">No transaction history found</div>
@@ -218,72 +222,37 @@ export default function WalletPage() {
       {actionType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white border-4 border-black p-6 w-full max-w-sm rounded-none shadow-[8px_8px_0px_0px_rgba(250,204,21,1)] relative">
-            
-            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-400 hover:text-black transition">
-              <X size={24} />
-            </button>
-            
+            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-400 hover:text-black transition"><X size={24} /></button>
             <h3 className="text-2xl font-black uppercase tracking-tight text-gray-900 mb-6 border-b-2 border-gray-100 pb-4">
               {actionType === "deposit" ? "Top Up Wallet" : "Cash Out"}
             </h3>
-
             <form onSubmit={handleTransaction} className="space-y-5">
-              
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Amount (UGX)</label>
                 <input 
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder={actionType === "deposit" ? "Min. 500" : "Min. 1000"}
-                  required
+                  type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
+                  placeholder={actionType === "deposit" ? "Min. 500" : "Min. 1000"} required
                   className="w-full bg-gray-50 border-2 border-gray-200 p-4 font-black text-xl text-gray-900 focus:outline-none focus:border-yellow-400 focus:bg-white transition"
                 />
               </div>
-
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Mobile Money Number</label>
                 <input 
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 0770000000"
-                  required
+                  type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. 0770000000" required
                   className="w-full bg-gray-50 border-2 border-gray-200 p-4 font-black text-xl text-gray-900 focus:outline-none focus:border-yellow-400 focus:bg-white transition"
                 />
               </div>
-
               {actionType === "withdraw" && (
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Network Provider</label>
                   <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setProvider("MTN")}
-                      className={`p-3 border-2 font-black text-sm uppercase tracking-wider transition ${
-                        provider === "MTN" ? "border-black bg-yellow-400 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300"
-                      }`}
-                    >
-                      MTN
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProvider("AIRTEL")}
-                      className={`p-3 border-2 font-black text-sm uppercase tracking-wider transition ${
-                        provider === "AIRTEL" ? "border-black bg-red-500 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300"
-                      }`}
-                    >
-                      Airtel
-                    </button>
+                    <button type="button" onClick={() => setProvider("MTN")} className={`p-3 border-2 font-black text-sm uppercase tracking-wider transition ${provider === "MTN" ? "border-black bg-yellow-400 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300"}`}>MTN</button>
+                    <button type="button" onClick={() => setProvider("AIRTEL")} className={`p-3 border-2 font-black text-sm uppercase tracking-wider transition ${provider === "AIRTEL" ? "border-black bg-red-500 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300"}`}>Airtel</button>
                   </div>
                 </div>
               )}
-
-              <button 
-                type="submit" 
-                disabled={isProcessing}
-                className="w-full bg-black text-white font-black uppercase tracking-widest text-sm p-4 border-2 border-black hover:bg-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed mt-4"
-              >
+              <button type="submit" disabled={isProcessing} className="w-full bg-black text-white font-black uppercase tracking-widest text-sm p-4 border-2 border-black hover:bg-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed mt-4">
                 {isProcessing ? "Processing..." : "Confirm Transaction"}
               </button>
             </form>
@@ -291,5 +260,13 @@ export default function WalletPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function WalletPageWrapper() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400 font-bold uppercase tracking-widest animate-pulse">Loading Wallet...</div>}>
+      <WalletContent />
+    </Suspense>
   );
 }

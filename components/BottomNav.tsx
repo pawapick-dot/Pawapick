@@ -24,8 +24,8 @@ export default function BottomNav() {
       .catch(() => setLiveCount(0));
   }, []);
 
-  // Hide the bottom nav on immersive game screens
-  if (pathname.startsWith("/play/")) return null;
+  // Hide the bottom nav on immersive game screens and live markets
+  if (pathname.startsWith("/play/") || pathname.startsWith("/games/")) return null;
 
   // Intercept clicks for protected routes
   const handleProtectedClick = (e: React.MouseEvent, href: string) => {
@@ -38,7 +38,7 @@ export default function BottomNav() {
   const navItems = [
     { name: `Live (${liveCount})`, href: "/feed", icon: Radio, protected: false },
     { name: "History", href: "/history", icon: HistoryIcon, protected: true },
-    // Center item (Create) is handled separately for special styling
+    // Center item (Create) is handled separately
     { name: "Wallet", href: "/wallet", icon: Wallet, protected: true },
     { name: "Profile", href: "/dashboard", icon: User, protected: true },
   ];
@@ -66,14 +66,14 @@ export default function BottomNav() {
           );
         })}
 
-        {/* Center Floating Action Button (Create) */}
+        {/* Center Floating Action Button (Create) - Pushed down & scaled slightly */}
         <Link
           href="/create"
           onClick={(e) => handleProtectedClick(e, "/create")}
-          className="flex flex-col items-center justify-end group relative -top-3"
+          className="flex flex-col items-center justify-end group relative -top-1"
         >
-          <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-[0_4px_15px_rgba(37,99,235,0.4)] mb-1 group-active:scale-95 transition-transform border-4 border-slate-50">
-            <Plus size={24} strokeWidth={3} />
+          <div className="w-11 h-11 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-[0_4px_15px_rgba(37,99,235,0.4)] mb-1 group-active:scale-95 transition-transform border-[3px] border-white">
+            <Plus size={22} strokeWidth={3} />
           </div>
           <span className={`text-[10px] font-bold ${pathname === "/create" ? "text-blue-600" : "text-slate-600"}`}>
             Create

@@ -1,6 +1,5 @@
 // lib/email-templates.ts
 
-// Base wrapper to keep branding consistent across all emails
 const baseTemplate = (content: string) => `
 <!DOCTYPE html>
 <html>
@@ -51,10 +50,23 @@ export const Templates = {
   `),
 
   GameWon: (gameType: string, payout: string, verifyLink: string) => baseTemplate(`
-    <h1 class="title">You Won!</h1>
+    <h1 class="title">You Won! 🏆</h1>
     <p>Your prediction for the <span class="highlight">${gameType}</span> match was correct.</p>
     <p><span class="highlight">UGX ${payout}</span> has been added to your wallet.</p>
     <a href="${verifyLink}" class="button">View Cryptographic Receipt</a>
+  `),
+
+  GameLost: (gameType: string, verifyLink: string) => baseTemplate(`
+    <h1 class="title">Match Completed</h1>
+    <p>Unfortunately, your prediction for the <span class="highlight">${gameType}</span> match was incorrect this time.</p>
+    <p>Don't worry, there are plenty of other live markets waiting for you.</p>
+    <a href="${verifyLink}" class="button">View Match Details</a>
+  `),
+
+  RefundIssued: (amount: string, newBalance: string) => baseTemplate(`
+    <h1 class="title">Game Cancelled & Refunded</h1>
+    <p>Your open challenge was cancelled successfully.</p>
+    <p>Your stake of <span class="highlight">UGX ${amount}</span> has been refunded to your wallet. Your new balance is <strong>UGX ${newBalance}</strong>.</p>
   `),
 
   WithdrawalRequested: (amount: string, phone: string, provider: string) => baseTemplate(`
@@ -65,8 +77,14 @@ export const Templates = {
   `),
 
   WithdrawalApproved: (amount: string) => baseTemplate(`
-    <h1 class="title">Funds Sent</h1>
+    <h1 class="title">Funds Sent 💸</h1>
     <p>Great news! Your withdrawal of <span class="highlight">UGX ${amount}</span> has been approved and dispatched to your mobile money account.</p>
     <p>Thank you for playing on Pawa Pick.</p>
+  `),
+
+  WithdrawalRejected: (amount: string, reason: string) => baseTemplate(`
+    <h1 class="title">Withdrawal Rejected</h1>
+    <p>Your request to withdraw <span class="highlight">UGX ${amount}</span> could not be processed and has been refunded to your Pawa Pick wallet.</p>
+    ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : `<p>Please check your account details and try again.</p>`}
   `),
 };

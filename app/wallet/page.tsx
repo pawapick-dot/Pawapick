@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { ArrowDownLeft, ArrowUpRight, History, ShieldCheck, Lock } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, History, ShieldCheck, Lock, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 type Transaction = {
@@ -20,15 +20,23 @@ export default function WalletPage() {
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Transaction Modal State
+  const [actionType, setActionType] = useState<"deposit" | "withdraw" | null>(null);
+  const [amount, setAmount] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [provider, setProvider] = useState<"MTN" | "AIRTEL">("MTN");
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
   const fetchWalletData = useCallback(async () => {
     if (!user) return;
     try {
       const token = await user.getIdToken();
+      // Assuming your GET /api/wallet route returns { balance, history }
       const res = await fetch("/api/wallet", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         setBalance(data.balance);
         setHistory(data.history);
@@ -46,41 +54,69 @@ export default function WalletPage() {
     }
   }, [user, authLoading, fetchWalletData]);
 
-  const handleDeposit = async () => {
+  // Format Ugandan phone numbers to MarzPay required format (+256xxxxxxxxx)
+  const formatPhoneNumber = (number: string) => {
+    let cleaned = number.replace(/\D/g, "");
+    if (cleaned.startsWith("0")) cleaned = "256" + cleaned.slice(1);
+    if (cleaned.length === 9) cleaned = "256" + cleaned;
+    if (!cleaned.startsWith("+")) cleaned = "+" + cleaned;
+    return cleaned;
+  };
+
+  const handleTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user) return openAuthModal();
-    const depositAmount = 25000;
     
+    const numAmount = Number(amount);
+    if (actionType === "deposit" && numAmount < 500) return toast.error("Minimum deposit is UGX 500.");
+    if (actionType === "withdraw" && numAmount < 1000) return toast.error("Minimum withdrawal is UGX 1,000.");
+    if (actionType === "withdraw" && numAmount > balance) return toast.error("Insufficient funds.");
+    if (!phone || phone.length < 9) return toast.error("Please enter a valid phone number.");
+
+    setIsProcessing(true);
+    const endpoint = actionType === "deposit" ? "/api/wallet/deposit" : "/api/wallet/withdraw";
+    const formattedPhone = formatPhoneNumber(phone);
+
     try {
       const token = await user.getIdToken();
-      toast.promise(
-        fetch("/api/wallet", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({ amount: depositAmount }),
-        }).then(async (res) => {
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error);
-          setBalance(data.balance);
-          fetchWalletData(); // Refresh ledger
-          return data;
-        }),
-        {
-          loading: "Processing secure deposit...",
-          success: `+${depositAmount.toLocaleString()} UGX added.`,
-          error: "Deposit failed.",
-        }
-      );
-    } catch (error) {
-      toast.error("Authentication error.");
+      
+      const payload: any = { amount: numAmount, phoneNumber: formattedPhone };
+      if (actionType === "withdraw") payload.provider = provider; // Required for withdrawals
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Transaction failed");
+
+      if (actionType === "deposit") {
+        toast.success("Prompt sent! Check your phone to enter your PIN.", { duration: 5000 });
+      } else {
+        toast.success("Withdrawal requested successfully!");
+        setBalance(data.newBalance); // Instant optimistic update for withdrawals
+      }
+      
+      fetchWalletData(); // Refresh history
+      closeModal();
+    } catch (error: any) {
+      toast.error(error.message || "Transaction failed.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const handleWithdraw = () => {
-    if (balance <= 0) return toast.error("Insufficient funds.");
-    toast.info("Withdrawals require live mobile money API integration.");
+  const closeModal = () => {
+    setActionType(null);
+    setAmount("");
+    setPhone("");
+    setIsProcessing(false);
   };
 
   if (authLoading) return <div className="p-8 text-center text-gray-400 font-bold uppercase tracking-widest animate-pulse">Decrypting...</div>;
@@ -103,8 +139,8 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto space-y-8 mt-6 pb-12 px-4">
-      
+    <div className="max-w-md mx-auto space-y-8 mt-6 pb-12 px-4 relative">
+
       {/* Wallet Balance Card */}
       <div className="bg-gray-900 rounded-none p-8 border-2 border-black relative overflow-hidden shadow-[8px_8px_0px_0px_rgba(250,204,21,1)]">
         <div className="relative z-10">
@@ -122,7 +158,7 @@ export default function WalletPage() {
       {/* Action Buttons */}
       <div className="grid grid-cols-2 gap-6">
         <button
-          onClick={handleDeposit}
+          onClick={() => setActionType("deposit")}
           className="bg-white border-2 border-gray-200 rounded-none p-5 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-1 active:shadow-none flex flex-col items-center justify-center gap-3 group"
         >
           <div className="w-12 h-12 rounded-none bg-yellow-400 flex items-center justify-center border-2 border-black">
@@ -132,7 +168,7 @@ export default function WalletPage() {
         </button>
 
         <button
-          onClick={handleWithdraw}
+          onClick={() => setActionType("withdraw")}
           className="bg-white border-2 border-gray-200 rounded-none p-5 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-1 active:shadow-none flex flex-col items-center justify-center gap-3 group"
         >
           <div className="w-12 h-12 rounded-none bg-gray-100 flex items-center justify-center border-2 border-transparent group-hover:border-black transition">
@@ -163,11 +199,11 @@ export default function WalletPage() {
                   </div>
                   <div>
                     <p className="font-black text-sm text-gray-900 uppercase tracking-wide">{tx.type.replace("_", " ")}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">{tx.createdAt}</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase">{new Date(tx.createdAt).toLocaleString()}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`font-black text-lg ${tx.amount > 0 ? 'text-gray-900' : 'text-gray-900'}`}>
+                  <p className={`font-black text-lg ${tx.amount > 0 ? 'text-green-600' : 'text-gray-900'}`}>
                     {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
                   </p>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{tx.status}</p>
@@ -177,6 +213,83 @@ export default function WalletPage() {
           )}
         </div>
       </div>
+
+      {/* Transaction Modal Overlay */}
+      {actionType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white border-4 border-black p-6 w-full max-w-sm rounded-none shadow-[8px_8px_0px_0px_rgba(250,204,21,1)] relative">
+            
+            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-400 hover:text-black transition">
+              <X size={24} />
+            </button>
+            
+            <h3 className="text-2xl font-black uppercase tracking-tight text-gray-900 mb-6 border-b-2 border-gray-100 pb-4">
+              {actionType === "deposit" ? "Top Up Wallet" : "Cash Out"}
+            </h3>
+
+            <form onSubmit={handleTransaction} className="space-y-5">
+              
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Amount (UGX)</label>
+                <input 
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder={actionType === "deposit" ? "Min. 500" : "Min. 1000"}
+                  required
+                  className="w-full bg-gray-50 border-2 border-gray-200 p-4 font-black text-xl text-gray-900 focus:outline-none focus:border-yellow-400 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Mobile Money Number</label>
+                <input 
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. 0770000000"
+                  required
+                  className="w-full bg-gray-50 border-2 border-gray-200 p-4 font-black text-xl text-gray-900 focus:outline-none focus:border-yellow-400 focus:bg-white transition"
+                />
+              </div>
+
+              {actionType === "withdraw" && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Network Provider</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setProvider("MTN")}
+                      className={`p-3 border-2 font-black text-sm uppercase tracking-wider transition ${
+                        provider === "MTN" ? "border-black bg-yellow-400 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300"
+                      }`}
+                    >
+                      MTN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProvider("AIRTEL")}
+                      className={`p-3 border-2 font-black text-sm uppercase tracking-wider transition ${
+                        provider === "AIRTEL" ? "border-black bg-red-500 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300"
+                      }`}
+                    >
+                      Airtel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <button 
+                type="submit" 
+                disabled={isProcessing}
+                className="w-full bg-black text-white font-black uppercase tracking-widest text-sm p-4 border-2 border-black hover:bg-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+              >
+                {isProcessing ? "Processing..." : "Confirm Transaction"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

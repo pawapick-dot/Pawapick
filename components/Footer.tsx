@@ -1,18 +1,24 @@
-// components/Footer.tsx
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ShieldCheck, MapPin } from "lucide-react";
 
 export default function Footer() {
+  const pathname = usePathname();
   const currentYear = new Date().getFullYear();
+
+  // Hide the footer entirely on Admin pages to give Admin Console full screen
+  if (pathname.startsWith("/admin")) return null;
 
   return (
     <footer className="bg-white border-t border-slate-200 pt-12 pb-8 mt-auto z-10 relative">
       <div className="max-w-7xl mx-auto px-4">
-        
+
         {/* Main Grid: Stacks on mobile, expands to 4 columns on desktop */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-8">
-          
-          {/* Brand & Motto (Takes up half the space on desktop) */}
+
+          {/* Brand & Motto */}
           <div className="md:col-span-2 space-y-4">
             <Link href="/" className="font-extrabold text-2xl tracking-tight inline-block">
               <span className="text-slate-900">Pawa-</span>
@@ -86,12 +92,12 @@ export default function Footer() {
         {/* Divider */}
         <div className="w-full h-px bg-slate-100 my-8"></div>
 
-        {/* Bottom Bar: Centers on mobile, spreads to edges on desktop */}
+        {/* Bottom Bar */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-xs font-medium text-slate-400 text-center md:text-left">
             &copy; {currentYear} Pawa Pick. All rights reserved.
           </p>
-          
+
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-1.5 text-slate-400">
               <MapPin size={14} />

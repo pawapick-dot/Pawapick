@@ -1,7 +1,7 @@
 // app/admin/layout.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -15,12 +15,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading, logout } = useAuth();
+  const [isChecking, setIsChecking] = useState(true);
 
-  // Basic client-side protection (Real protection is in the APIs)
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading admin...</div>;
-  if (!user) {
-    router.push("/");
-    return null;
+  // Silently redirect unauthorized users before rendering anything
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        router.replace("/"); // replace() ensures they can't use the back button to return here
+      } else {
+        setIsChecking(false);
+      }
+    }
+  }, [user, loading, router]);
+
+  // Return a completely blank screen while checking to prevent UI flashes
+  if (loading || isChecking) {
+    return <div className="min-h-screen bg-slate-50"></div>;
   }
 
   const navLinks = [
@@ -36,7 +46,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -59,9 +68,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 hide-scrollbar">
           {navLinks.map((link) => {
             const Icon = link.icon;
-            // Exact match for dashboard, includes match for sub-pages
             const isActive = link.href === "/admin" ? pathname === "/admin" : pathname.startsWith(link.href);
-            
+
             return (
               <Link 
                 key={link.href}
@@ -98,7 +106,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {children}
         </div>
       </main>
-
     </div>
   );
 }

@@ -5,10 +5,10 @@ import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
 import { sendCustomEmail } from "@/lib/email";
 import { Templates } from "@/lib/email-templates";
+import crypto from "crypto"; // Native Node.js UUID generator
 
 export async function POST(request: Request) {
   try {
-    // 1. Verify User
     const uid = await verifyToken(request);
     if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -23,10 +23,11 @@ export async function POST(request: Request) {
     }
 
     const userRef = db.collection("users").doc(uid);
-    const withdrawalRef = db.collection("withdrawals").doc();
-    const transactionRef = db.collection("transactions").doc();
+    // 1. Generate UUID v4 instead of Firestore's default ID
+    const withdrawalId = crypto.randomUUID();
+    const withdrawalRef = db.collection("withdrawals").doc(withdrawalId);
+    const transactionRef = db.collection("transactions").doc(withdrawalId);
 
-    // 2. Run Secure Transaction
     const result = await db.runTransaction(async (transaction) => {
       const userDoc = await transaction.get(userRef);
       if (!userDoc.exists) throw new Error("User profile not found");
@@ -41,12 +42,10 @@ export async function POST(request: Request) {
       const newBalance = currentBalance - withdrawAmount;
       const timestamp = admin.firestore.FieldValue.serverTimestamp();
 
-      // Deduct Balance
       transaction.set(userRef, { walletBalance: newBalance }, { merge: true });
 
-      // Create Pending Withdrawal Record
       transaction.set(withdrawalRef, {
-        id: withdrawalRef.id,
+        id: withdrawalId,
         userId: uid,
         amount: withdrawAmount,
         phoneNumber,
@@ -55,9 +54,8 @@ export async function POST(request: Request) {
         createdAt: timestamp
       });
 
-      // Create Ledger Receipt
       transaction.set(transactionRef, {
-        id: transactionRef.id,
+        id: withdrawalId,
         uid,
         type: "withdrawal_request",
         amount: -withdrawAmount,
@@ -68,12 +66,11 @@ export async function POST(request: Request) {
       return {
         email: userData.email,
         name: userData.displayName || "Player",
-        withdrawalId: withdrawalRef.id,
+        withdrawalId,
         newBalance
       };
     });
 
-    // 3. Trigger Brevo Email (Asynchronous)
     if (result.email) {
       sendCustomEmail({
         toEmail: result.email,
@@ -84,7 +81,7 @@ export async function POST(request: Request) {
           phoneNumber,
           provider
         )
-      }).catch((err) => console.error("Failed to send withdrawal email:", err));
+      }).catch(console.error);
     }
 
     return NextResponse.json({ 

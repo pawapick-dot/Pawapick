@@ -3,7 +3,8 @@ import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
-import { sendTemplateEmail, EMAIL_TEMPLATES } from "@/lib/email";
+import { sendCustomEmail } from "@/lib/email";
+import { Templates } from "@/lib/email-templates";
 
 export async function POST(request: Request) {
   try {
@@ -74,17 +75,15 @@ export async function POST(request: Request) {
 
     // 3. Trigger Brevo Email (Asynchronous)
     if (result.email) {
-      sendTemplateEmail({
+      sendCustomEmail({
         toEmail: result.email,
         toName: result.name,
-        templateId: EMAIL_TEMPLATES.WITHDRAWAL_REQUESTED,
-        params: {
-          amount: withdrawAmount.toLocaleString(),
-          currency: "UGX",
-          provider: provider,
-          phone: phoneNumber,
-          reference_id: result.withdrawalId
-        }
+        subject: "Withdrawal Requested - Pawa Pick",
+        htmlContent: Templates.WithdrawalRequested(
+          withdrawAmount.toLocaleString(),
+          phoneNumber,
+          provider
+        )
       }).catch((err) => console.error("Failed to send withdrawal email:", err));
     }
 

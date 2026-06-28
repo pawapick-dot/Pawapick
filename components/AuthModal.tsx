@@ -9,12 +9,13 @@ import { auth, googleProvider } from "@/lib/firebase";
 import { 
   signInWithPopup, 
   createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword 
+  signInWithEmailAndPassword,
+  getAdditionalUserInfo
 } from "firebase/auth";
 import { useAuth } from "@/context/AuthContext";
 
 export default function AuthModal() {
-  const { isModalOpen, closeAuthModal } = useAuth();
+  const { isModalOpen, closeAuthModal } = useAuth() as any;
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,11 +23,35 @@ export default function AuthModal() {
 
   if (!isModalOpen) return null;
 
+  // Helper function to trigger the secure backend email route
+  const sendWelcomeEmail = async (userEmail: string, userName: string | null) => {
+    try {
+      await fetch("/api/email/welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail, name: userName }),
+      });
+    } catch (error) {
+      console.error("Failed to trigger welcome email API", error);
+    }
+  };
+
   const handleGoogleAuth = async () => {
     try {
       setIsLoading(true);
-      await signInWithPopup(auth, googleProvider);
-      toast.success("Successfully logged in!");
+      const result = await signInWithPopup(auth, googleProvider);
+      
+      // Check if this Google account is brand new to our platform
+      const { isNewUser } = getAdditionalUserInfo(result) || {};
+      
+      if (isNewUser && result.user.email) {
+        toast.success("Account created successfully!");
+        // Fire email asynchronously so it doesn't block the UI
+        sendWelcomeEmail(result.user.email, result.user.displayName);
+      } else {
+        toast.success("Successfully logged in!");
+      }
+      
       closeAuthModal();
     } catch (error: any) {
       toast.error(error.message || "Failed to authenticate with Google");
@@ -38,15 +63,20 @@ export default function AuthModal() {
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return toast.error("Please fill in all fields");
-    
+
     try {
       setIsLoading(true);
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
         toast.success("Welcome back!");
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const result = await createUserWithEmailAndPassword(auth, email, password);
         toast.success("Account created successfully!");
+        
+        // Fire welcome email for manual signups
+        if (result.user.email) {
+          sendWelcomeEmail(result.user.email, "Player");
+        }
       }
       closeAuthModal();
     } catch (error: any) {

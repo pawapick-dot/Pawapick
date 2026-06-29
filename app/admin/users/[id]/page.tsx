@@ -1,174 +1,92 @@
-// app/admin/users/[id]/page.tsx
-"use client";
+// app/api/admin/users/[id]/route.ts
+import { db } from "@/lib/firebase-admin";
+import { verifyToken } from "@/lib/verify-token";
+import { NextResponse } from "next/server";
+import * as admin from "firebase-admin";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { useAuth } from "@/context/AuthContext";
-import { ArrowLeft, Wallet, ShieldAlert, CheckCircle2, History, ArrowRightLeft } from "lucide-react";
+export async function GET(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const adminUid = await verifyToken(request);
+    if (!adminUid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-export default function AdminUserDetails({ params }: { params: { id: string } }) {
-  const router = useRouter();
-  const { user } = useAuth();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
+    const adminDoc = await db.collection("users").doc(adminUid).get();
+    if (adminDoc.data()?.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  useEffect(() => {
-    const fetchUserDetails = async () => {
-      if (!user) return;
-      try {
-        const token = await user.getIdToken();
-        const res = await fetch(`/api/admin/users/${params.id}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error);
-        setData(json);
-      } catch (err: any) {
-        toast.error(err.message || "Failed to load user details");
-        router.push("/admin/users");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUserDetails();
-  }, [user, params.id, router]);
+    const userId = params.id;
 
-  const toggleStatus = async () => {
-    if (!confirm("Are you sure you want to change this user's account status?")) return;
-    setIsUpdating(true);
+    // 1. Get User Profile from Auth
+    let authUser;
     try {
-      const token = await user?.getIdToken();
-      const newStatus = data.user.status === "suspended" ? "active" : "suspended";
-      
-      const res = await fetch(`/api/admin/users/${params.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ status: newStatus })
-      });
-      
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      
-      setData({ ...data, user: { ...data.user, status: newStatus } });
-      toast.success(`User ${newStatus} successfully.`);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update status");
-    } finally {
-      setIsUpdating(false);
+      authUser = await admin.auth().getUser(userId);
+    } catch (e) {
+      return NextResponse.json({ error: "User not found in Authentication" }, { status: 404 });
     }
-  };
 
-  if (loading) return <div className="text-slate-400 font-medium animate-pulse">Loading profile...</div>;
-  if (!data) return null;
+    // 2. Get User Wallet/Status from Firestore
+    const userDoc = await db.collection("users").doc(userId).get();
+    const fsData = userDoc.exists ? userDoc.data() : {};
 
-  const { user: profile, games, transactions } = data;
+    const userData = {
+      id: authUser.uid,
+      displayName: authUser.displayName || authUser.email || authUser.phoneNumber || "Player",
+      phoneNumber: authUser.phoneNumber || "N/A",
+      email: authUser.email || "",
+      walletBalance: fsData?.walletBalance || 0,
+      status: fsData?.status || (authUser.disabled ? "suspended" : "active"),
+      createdAt: authUser.metadata.creationTime,
+    };
 
-  return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      <Link href="/admin/users" className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-colors font-semibold text-sm bg-white border border-slate-200 px-3 py-2 rounded-lg shadow-sm w-fit">
-        <ArrowLeft size={16} /> Back to Users
-      </Link>
+    // 3. Get User's Games (Created or Challenged)
+    const createdSnap = await db.collection("games").where("creatorId", "==", userId).get();
+    const challengedSnap = await db.collection("games").where("playerBId", "==", userId).get();
 
-      {/* User Header Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{profile.displayName || "Unknown User"}</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">{profile.phoneNumber || "No Phone Number"} • Joined {new Date(profile.createdAt).toLocaleDateString()}</p>
-          <div className="mt-3 flex items-center gap-2">
-            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest ${profile.status === 'suspended' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-              {profile.status || "Active"}
-            </span>
-          </div>
-        </div>
+    let allGames: any[] = [];
+    createdSnap.forEach(doc => allGames.push({ id: doc.id, role: "Creator", ...doc.data() }));
+    challengedSnap.forEach(doc => allGames.push({ id: doc.id, role: "Opponent", ...doc.data() }));
 
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex-1 md:flex-none md:min-w-[180px]">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Wallet size={14}/> Wallet</p>
-            <p className="text-2xl font-extrabold text-slate-900">{(profile.walletBalance || 0).toLocaleString()} <span className="text-sm text-slate-400 font-bold">UGX</span></p>
-          </div>
-          
-          <button 
-            onClick={toggleStatus}
-            disabled={isUpdating}
-            className={`px-6 py-4 rounded-xl font-bold text-sm shadow-sm transition-colors flex-shrink-0 ${
-              profile.status === "suspended" 
-                ? "bg-emerald-600 hover:bg-emerald-700 text-white" 
-                : "bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200"
-            }`}
-          >
-            {isUpdating ? "Updating..." : profile.status === "suspended" ? "Reactivate User" : "Suspend User"}
-          </button>
-        </div>
-      </div>
+    // Sort games newest first
+    allGames.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Game History */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col h-[500px]">
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <History size={18} className="text-slate-400" />
-              <h3 className="font-bold text-slate-900">Game History</h3>
-            </div>
-            <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-md">{games.length} Total</span>
-          </div>
-          <div className="overflow-y-auto flex-1 p-4 space-y-3 bg-slate-50/50">
-            {games.length === 0 ? (
-              <p className="text-center text-sm font-medium text-slate-400 mt-10">No games played yet.</p>
-            ) : (
-              games.map((g: any) => (
-                <div key={g.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${g.role === "Creator" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-purple-50 text-purple-600 border-purple-100"}`}>{g.role}</span>
-                      <span className="text-xs font-medium text-slate-500">{new Date(g.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <p className="font-bold text-slate-900 text-sm capitalize">{g.gameType.replace("_", " ")}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md ${g.status === 'open' ? 'text-blue-500 bg-blue-50' : 'text-slate-500 bg-slate-100'}`}>{g.status}</span>
-                    <p className="font-bold text-slate-900 mt-1">{g.stakeAmount.toLocaleString()} <span className="text-[10px] text-slate-400">UGX</span></p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+    // 4. Get User's Transactions (FIXED: Uses 'uid' instead of 'userId')
+    const txSnap = await db.collection("transactions").where("uid", "==", userId).orderBy("createdAt", "desc").get();
+    const transactions = txSnap.docs.map(doc => {
+      const data = doc.data();
+      // Handle timestamp conversion
+      const rawDate = data.createdAt;
+      const txDate = rawDate && typeof rawDate.toDate === 'function' ? rawDate.toDate() : new Date();
+      return { id: doc.id, ...data, createdAt: txDate.toISOString() };
+    });
 
-        {/* Transaction History */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col h-[500px]">
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <ArrowRightLeft size={18} className="text-slate-400" />
-              <h3 className="font-bold text-slate-900">Transaction History</h3>
-            </div>
-          </div>
-          <div className="overflow-y-auto flex-1 p-4 space-y-3 bg-slate-50/50">
-            {transactions.length === 0 ? (
-              <p className="text-center text-sm font-medium text-slate-400 mt-10">No financial transactions recorded.</p>
-            ) : (
-              transactions.map((tx: any) => (
-                <div key={tx.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                  <div>
-                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${tx.type === "deposit" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : tx.type === "withdrawal" ? "bg-rose-50 text-rose-600 border-rose-100" : "bg-slate-50 text-slate-600 border-slate-200"}`}>{tx.type}</span>
-                     <p className="text-xs font-medium text-slate-500 mt-1.5">{new Date(tx.createdAt).toLocaleDateString()}</p>
-                  </div>
-                  <div className="text-right">
-                     <p className={`font-bold text-sm ${tx.type === "deposit" || tx.type === "prize" ? "text-emerald-600" : "text-slate-900"}`}>
-                       {tx.type === "deposit" || tx.type === "prize" ? "+" : "-"}{tx.amount.toLocaleString()} <span className="text-[10px] text-slate-400">UGX</span>
-                     </p>
-                     <span className={`text-[10px] font-bold uppercase tracking-widest ${tx.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'}`}>{tx.status}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+    return NextResponse.json({ user: userData, games: allGames, transactions });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
 
-      </div>
-    </div>
-  );
+// Handle Suspend / Reactivate
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const adminUid = await verifyToken(request);
+    if (!adminUid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const adminDoc = await db.collection("users").doc(adminUid).get();
+    if (adminDoc.data()?.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const { status } = await request.json();
+    if (!["active", "suspended"].includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+
+    const isDisabled = status === "suspended";
+
+    // 1. Actually disable/enable them in Firebase Auth so they can't log in
+    await admin.auth().updateUser(params.id, { disabled: isDisabled });
+
+    // 2. Update their Firestore status badge
+    await db.collection("users").doc(params.id).set({ status }, { merge: true });
+
+    return NextResponse.json({ success: true, status });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }

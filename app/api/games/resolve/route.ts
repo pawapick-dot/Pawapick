@@ -1,10 +1,10 @@
-// app/api/games/resolve/route.ts
 import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
 import { sendCustomEmail } from "@/lib/email";
 import { Templates } from "@/lib/email-templates";
+import { getGlobalSettings } from "@/lib/settings";
 
 export async function POST(request: Request) {
   try {
@@ -16,6 +16,9 @@ export async function POST(request: Request) {
 
     const gameRef = db.collection("games").doc(gameId);
     const challengerRef = db.collection("users").doc(uid);
+
+    // Fetch dynamic settings BEFORE entering the transaction
+    const settings = await getGlobalSettings();
 
     const transactionResult = await db.runTransaction(async (transaction) => {
       const gameDoc = await transaction.get(gameRef);
@@ -41,8 +44,10 @@ export async function POST(request: Request) {
         throw new Error("Insufficient funds to challenge. Please top up your wallet.");
       }
 
+      // Dynamic Payout Math
       const pool = game.stakeAmount * 2;
-      const rake = pool * 0.10;
+      const feePercentage = settings.platformFee / 100;
+      const rake = pool * feePercentage;
       const payout = pool - rake;
 
       const isChallengerWin = guess === game.creatorChoice;

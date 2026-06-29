@@ -1,9 +1,15 @@
 // lib/marzpay.ts
+import fetch from "node-fetch";
+import { HttpsProxyAgent } from "https-proxy-agent";
 
 const API_KEY = process.env.MARZPAY_API_KEY!;
 const API_SECRET = process.env.MARZPAY_API_SECRET!;
 const BASE_URL = "https://wallet.wearemarz.com/api/v1";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL!;
+
+// Setup the proxy agent if the FIXIE_URL is present
+const proxyUrl = process.env.FIXIE_URL;
+const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
 
 /**
  * Generates the Base64 Basic Auth string required by MarzPay
@@ -40,10 +46,11 @@ export async function initiateCollection({ amount, phoneNumber, reference, descr
       description: description,
       callback_url: `${APP_URL}/api/webhooks/marzpay`,
     }),
+    agent: agent, // Routes through the static IP proxy
   });
 
-  const data = await response.json();
-  
+  const data = await response.json() as any;
+
   if (!response.ok || data.status === "error") {
     throw new Error(data.message || "Failed to initiate MarzPay collection");
   }
@@ -78,9 +85,10 @@ export async function sendMoney({ amount, phoneNumber, reference, description }:
       description: description,
       callback_url: `${APP_URL}/api/webhooks/marzpay`,
     }),
+    agent: agent, // Routes through the static IP proxy
   });
 
-  const data = await response.json();
+  const data = await response.json() as any;
 
   if (!response.ok || data.status === "error") {
     throw new Error(data.message || "Failed to send money via MarzPay");

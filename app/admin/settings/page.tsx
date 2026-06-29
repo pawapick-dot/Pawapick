@@ -1,44 +1,76 @@
-// app/admin/settings/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Settings as SettingsIcon, Save, Percent, HandCoins, Gamepad2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { Settings as SettingsIcon, Save, Percent, Gamepad2, Banknote } from "lucide-react";
 
 export default function AdminSettings() {
+  const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
-  
-  // State for config
+  const [loading, setLoading] = useState(true);
+
   const [config, setConfig] = useState({
     platformFee: 10,
-    withdrawalFee: 0,
-    minDeposit: 1000,
-    minWithdrawal: 5000,
-    games: {
-      penalty: true,
-      shuffle: true,
-      color: true,
-    }
+    minDeposit: 500,
+    minWithdrawal: 1000,
+    games: { penalty: true, shuffle: true, color: true }
   });
 
-  const handleSave = () => {
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("/api/settings");
+        const data = await res.json();
+        if (res.ok && data.settings) {
+          setConfig(data.settings);
+        }
+      } catch (error) {
+        console.error("Failed to load settings");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleSave = async () => {
+    if (!user) return;
     setIsSaving(true);
-    // Placeholder for API call to save global settings
-    setTimeout(() => {
+    
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(config)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
       toast.success("Platform settings updated successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update settings");
+    } finally {
       setIsSaving(false);
-    }, 800);
+    }
   };
 
+  if (loading) return <div className="text-slate-400 font-medium animate-pulse">Loading settings...</div>;
+
   return (
-    <div className="max-w-4xl space-y-8">
+    <div className="max-w-4xl space-y-8 pb-12">
       <div>
         <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Platform Settings</h1>
         <p className="text-sm text-slate-500 font-medium mt-1">Configure financial logic and active modules.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
+
         {/* Financial Settings */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
           <div className="flex items-center gap-2 mb-2">
@@ -96,7 +128,7 @@ export default function AdminSettings() {
                 <button
                   onClick={() => setConfig({
                     ...config, 
-                    games: { ...config.games, [key]: !isActive }
+                    games: { ...config.games, [key as keyof typeof config.games]: !isActive }
                   })}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}
                 >
@@ -109,7 +141,6 @@ export default function AdminSettings() {
 
       </div>
 
-      {/* Action Bar */}
       <div className="flex justify-end pt-4">
         <button 
           onClick={handleSave}
@@ -119,7 +150,6 @@ export default function AdminSettings() {
           {isSaving ? "Saving..." : <><Save size={18} /> Save Configuration</>}
         </button>
       </div>
-
     </div>
   );
 }

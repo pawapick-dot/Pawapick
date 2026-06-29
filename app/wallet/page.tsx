@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowDownLeft, ArrowUpRight, History, ShieldCheck, Lock, X } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, History, ShieldCheck, Lock, X, Wallet, Loader2, Clock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase"; 
@@ -135,16 +135,24 @@ function WalletContent() {
     setIsProcessing(false);
   };
 
-  if (authLoading) return <div className="p-8 text-center text-gray-400 font-bold uppercase tracking-widest animate-pulse">Decrypting...</div>;
+  if (authLoading) return (
+    <div className="flex justify-center items-center h-64">
+      <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+    </div>
+  );
 
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-        <div className="w-20 h-20 bg-gray-900 flex items-center justify-center mb-6 rounded-none shadow-2xl">
-          <Lock size={32} className="text-yellow-400" />
+        <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6 shadow-sm border border-blue-100">
+          <Lock size={32} />
         </div>
-        <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">Wallet Locked</h1>
-        <button onClick={openAuthModal} className="mt-8 bg-yellow-400 text-black font-black uppercase tracking-widest text-sm px-10 py-5 rounded-none border-2 border-black hover:bg-yellow-500 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all">
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Wallet Locked</h1>
+        <p className="text-slate-500 mt-2 font-medium">Please sign in to access your funds and transaction history.</p>
+        <button 
+          onClick={openAuthModal} 
+          className="mt-8 bg-blue-600 text-white font-bold text-sm px-8 py-3.5 rounded-xl hover:bg-blue-700 shadow-sm transition-all active:scale-[0.98]"
+        >
           Verify Identity
         </button>
       </div>
@@ -152,65 +160,91 @@ function WalletContent() {
   }
 
   return (
-    <div className="max-w-md mx-auto space-y-8 mt-6 pb-12 px-4 relative">
-      {/* Wallet Balance Card */}
-      <div className="bg-gray-900 rounded-none p-8 border-2 border-black relative overflow-hidden shadow-[8px_8px_0px_0px_rgba(250,204,21,1)]">
+    <div className="max-w-md mx-auto space-y-6 mt-6 pb-12 px-4 relative">
+      {/* Modern Wallet Balance Card */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[2rem] p-8 relative overflow-hidden shadow-xl shadow-slate-900/10 border border-slate-800">
+        {/* Subtle background glow effect */}
+        <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-blue-500/20 blur-2xl"></div>
+        <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-32 h-32 rounded-full bg-emerald-500/20 blur-2xl"></div>
+        
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck size={16} className="text-yellow-400" />
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Escrow Balance</span>
+          <div className="flex items-center gap-2 mb-3">
+            <ShieldCheck size={16} className="text-emerald-400" />
+            <span className="text-xs font-semibold text-slate-300 uppercase tracking-widest">Available Balance</span>
           </div>
-          <h2 className="text-4xl font-black text-white tracking-tighter">
-            {loading ? "..." : `${balance.toLocaleString()}`}
-            <span className="text-lg text-yellow-400 ml-2">UGX</span>
-          </h2>
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight">
+              {loading ? "..." : balance.toLocaleString()}
+            </h2>
+            <span className="text-lg font-bold text-slate-400">UGX</span>
+          </div>
         </div>
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-6">
-        <button onClick={() => setActionType("deposit")} className="bg-white border-2 border-gray-200 rounded-none p-5 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-1 active:shadow-none flex flex-col items-center justify-center gap-3 group">
-          <div className="w-12 h-12 rounded-none bg-yellow-400 flex items-center justify-center border-2 border-black">
-            <ArrowDownLeft size={24} className="text-black" />
+      <div className="grid grid-cols-2 gap-4">
+        <button 
+          onClick={() => setActionType("deposit")} 
+          className="bg-white border border-slate-100 rounded-2xl p-5 hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-500/5 transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-3 group"
+        >
+          <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <ArrowDownLeft size={24} strokeWidth={2.5} />
           </div>
-          <span className="font-black text-gray-900 uppercase tracking-wider text-xs">Top Up</span>
+          <span className="font-bold text-slate-700 text-sm">Top Up</span>
         </button>
-        <button onClick={() => setActionType("withdraw")} className="bg-white border-2 border-gray-200 rounded-none p-5 hover:border-black hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-1 active:shadow-none flex flex-col items-center justify-center gap-3 group">
-          <div className="w-12 h-12 rounded-none bg-gray-100 flex items-center justify-center border-2 border-transparent group-hover:border-black transition">
-            <ArrowUpRight size={24} className="text-gray-900" />
+        
+        <button 
+          onClick={() => setActionType("withdraw")} 
+          className="bg-white border border-slate-100 rounded-2xl p-5 hover:border-blue-200 hover:shadow-md hover:shadow-blue-500/5 transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-3 group"
+        >
+          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <ArrowUpRight size={24} strokeWidth={2.5} />
           </div>
-          <span className="font-black text-gray-900 uppercase tracking-wider text-xs">Withdraw</span>
+          <span className="font-bold text-slate-700 text-sm">Withdraw</span>
         </button>
       </div>
 
       {/* Ledger UI */}
-      <div className="bg-white border-2 border-gray-100 rounded-none mt-8">
-        <div className="flex items-center gap-2 p-5 border-b-2 border-gray-100 bg-gray-50">
-          <History size={18} className="text-black" />
-          <span className="font-black text-gray-900 uppercase tracking-wider text-sm">Immutable Ledger</span>
+      <div className="bg-white border border-slate-100 rounded-[2rem] shadow-sm overflow-hidden mt-6">
+        <div className="flex items-center gap-2 p-6 border-b border-slate-50 bg-slate-50/50">
+          <History size={18} className="text-slate-400" />
+          <span className="font-bold text-slate-900 text-sm">Recent Transactions</span>
         </div>
-        <div className="divide-y-2 divide-gray-50">
+        
+        <div className="divide-y divide-slate-50">
           {history.length === 0 ? (
-            <div className="p-8 text-center text-gray-400 font-bold uppercase tracking-widest text-[10px]">No transaction history found</div>
+            <div className="p-12 text-center flex flex-col items-center">
+              <Wallet size={32} className="text-slate-200 mb-3" />
+              <p className="text-slate-500 font-medium text-sm">No transaction history found</p>
+            </div>
           ) : (
             history.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
+              <div key={tx.id} className="flex items-center justify-between p-5 hover:bg-slate-50/50 transition-colors">
                 <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-none border-2 flex items-center justify-center ${
-                    tx.type === 'deposit' || tx.type === 'game_win' ? 'bg-green-50 border-green-200 text-green-600' : 'bg-gray-50 border-gray-200 text-gray-500'
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                    tx.type === 'deposit' || tx.type === 'game_win' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-600'
                   }`}>
-                    {tx.type === 'deposit' || tx.type === 'game_win' ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
+                    {tx.type === 'deposit' || tx.type === 'game_win' ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
                   </div>
                   <div>
-                    <p className="font-black text-sm text-gray-900 uppercase tracking-wide">{tx.type.replace("_", " ")}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">{new Date(tx.createdAt).toLocaleString()}</p>
+                    <p className="font-bold text-sm text-slate-900 capitalize">{tx.type.replace(/_/g, " ")}</p>
+                    <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-slate-400">
+                      <Clock size={10} />
+                      {new Date(tx.createdAt).toLocaleDateString()}
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`font-black text-lg ${tx.amount > 0 ? 'text-green-600' : 'text-gray-900'}`}>
-                    {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                  <p className={`font-extrabold text-sm ${tx.amount > 0 ? 'text-emerald-600' : 'text-slate-900'}`}>
+                    {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()} <span className="text-[10px] text-slate-400 font-bold ml-0.5">UGX</span>
                   </p>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{tx.status}</p>
+                  <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest ${
+                    tx.status.toLowerCase() === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                    tx.status.toLowerCase() === 'pending' ? 'bg-amber-50 text-amber-600' :
+                    'bg-slate-100 text-slate-500'
+                  }`}>
+                    {tx.status}
+                  </span>
                 </div>
               </div>
             ))
@@ -218,51 +252,97 @@ function WalletContent() {
         </div>
       </div>
 
-      {/* Transaction Modal Overlay */}
+      {/* Transaction Modal Overlay with Glass Mask */}
       {actionType && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white border-4 border-black p-6 w-full max-w-sm rounded-none shadow-[8px_8px_0px_0px_rgba(250,204,21,1)] relative">
-            <button onClick={closeModal} className="absolute top-4 right-4 text-gray-400 hover:text-black transition"><X size={24} /></button>
-            <h3 className="text-2xl font-black uppercase tracking-tight text-gray-900 mb-6 border-b-2 border-gray-100 pb-4">
-              {actionType === "deposit" ? "Top Up Wallet" : "Cash Out"}
-            </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+          <div className="bg-white p-6 sm:p-8 w-full max-w-sm rounded-[2rem] shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            
+            <button 
+              onClick={closeModal} 
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="mb-6">
+              <h3 className="text-xl font-extrabold text-slate-900">
+                {actionType === "deposit" ? "Top Up Wallet" : "Cash Out"}
+              </h3>
+              <p className="text-sm text-slate-500 font-medium mt-1">
+                {actionType === "deposit" ? "Add funds securely via mobile money." : "Withdraw your winnings to your mobile wallet."}
+              </p>
+            </div>
+
             <form onSubmit={handleTransaction} className="space-y-5">
+              
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Amount (UGX)</label>
-                <input 
-                  type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
-                  placeholder={actionType === "deposit" ? "Min. 500" : "Min. 1000"} required
-                  className="w-full bg-gray-50 border-2 border-gray-200 p-4 font-black text-xl text-gray-900 focus:outline-none focus:border-yellow-400 focus:bg-white transition"
-                />
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">Amount (UGX)</label>
+                <div className="relative">
+                  <input 
+                    type="number" 
+                    value={amount} 
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder={actionType === "deposit" ? "Min. 500" : "Min. 1,000"} 
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12 font-bold text-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  />
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">UGX</span>
+                </div>
                 
                 {/* Dynamically display processing fee breakdown for deposits */}
                 {actionType === "deposit" && rawAmount >= 500 && (
-                  <div className="flex justify-between px-1 pt-1 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                    <span>Processing Fee:</span>
-                    <span className="text-gray-900">+ UGX {processingFee.toLocaleString()}</span>
+                  <div className="flex justify-between px-1 pt-1.5 text-xs font-semibold text-slate-500">
+                    <span>Processing Fee (5%):</span>
+                    <span className="text-slate-900">+ {processingFee.toLocaleString()} UGX</span>
                   </div>
                 )}
               </div>
+
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Mobile Money Number</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">Mobile Money Number</label>
                 <input 
-                  type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 0770000000" required
-                  className="w-full bg-gray-50 border-2 border-gray-200 p-4 font-black text-xl text-gray-900 focus:outline-none focus:border-yellow-400 focus:bg-white transition"
+                  type="tel" 
+                  value={phone} 
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. 0770000000" 
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                 />
               </div>
+
               {actionType === "withdraw" && (
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Network Provider</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button type="button" onClick={() => setProvider("MTN")} className={`p-3 border-2 font-black text-sm uppercase tracking-wider transition ${provider === "MTN" ? "border-black bg-yellow-400 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300"}`}>MTN</button>
-                    <button type="button" onClick={() => setProvider("AIRTEL")} className={`p-3 border-2 font-black text-sm uppercase tracking-wider transition ${provider === "AIRTEL" ? "border-black bg-red-500 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300"}`}>Airtel</button>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">Network Provider</label>
+                  <div className="flex p-1 bg-slate-100 rounded-xl">
+                    <button 
+                      type="button" 
+                      onClick={() => setProvider("MTN")} 
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${provider === "MTN" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      MTN
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setProvider("AIRTEL")} 
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${provider === "AIRTEL" ? "bg-white text-rose-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      Airtel
+                    </button>
                   </div>
                 </div>
               )}
-              <button type="submit" disabled={isProcessing} className="w-full bg-black text-white font-black uppercase tracking-widest text-sm p-4 border-2 border-black hover:bg-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed mt-4">
-                {isProcessing ? "Processing..." : actionType === "deposit" ? `Pay UGX ${totalCharge.toLocaleString()}` : "Confirm Withdrawal"}
-              </button>
+
+              <div className="pt-2">
+                <button 
+                  type="submit" 
+                  disabled={isProcessing} 
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-bold text-sm py-4 rounded-xl hover:bg-blue-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isProcessing && <Loader2 size={18} className="animate-spin" />}
+                  {isProcessing ? "Processing..." : actionType === "deposit" ? `Pay ${totalCharge.toLocaleString()} UGX` : "Confirm Withdrawal"}
+                </button>
+              </div>
+
             </form>
           </div>
         </div>
@@ -273,7 +353,7 @@ function WalletContent() {
 
 export default function WalletPageWrapper() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-gray-400 font-bold uppercase tracking-widest animate-pulse">Loading Wallet...</div>}>
+    <Suspense fallback={<div className="flex justify-center items-center min-h-[60vh]"><Loader2 className="w-8 h-8 text-blue-500 animate-spin" /></div>}>
       <WalletContent />
     </Suspense>
   );

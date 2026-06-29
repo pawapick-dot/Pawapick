@@ -8,7 +8,7 @@ import { Templates } from "@/lib/email-templates";
 export async function POST(request: Request) {
   try {
     const payload = await request.json();
-    
+
     // MarzPay payload structure
     const { event_type, transaction: marzTx, collection, disbursement } = payload;
 
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     // The 'reference' is our Firestore Document ID that we generated when creating the request
     const internalRefId = marzTx.reference;
     const txRef = db.collection("transactions").doc(internalRefId);
-    
+
     let emailData: any = null;
 
     // Run Secure Transaction for Idempotency
@@ -59,6 +59,16 @@ export async function POST(request: Request) {
             resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
+          // Create Notification Document
+          transaction.set(db.collection("notifications").doc(), {
+            uid: txData.uid,
+            title: "Wallet Top-up Complete",
+            message: `Your deposit of ${txData.amount.toLocaleString()} UGX has been successfully credited to your wallet.`,
+            type: "deposit",
+            isRead: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+
           // Extract data to send email outside of the Firestore lock
           emailData = {
             type: "deposit_success",
@@ -76,6 +86,16 @@ export async function POST(request: Request) {
           status: "failed",
           providerTransactionId: collection?.provider_transaction_id || null,
           resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        
+        // Optional: Notify user of failed deposit
+        transaction.set(db.collection("notifications").doc(), {
+          uid: txData.uid,
+          title: "Deposit Failed",
+          message: `Your attempt to deposit ${txData.amount.toLocaleString()} UGX was unsuccessful. Please try again.`,
+          type: "system",
+          isRead: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
       }
 

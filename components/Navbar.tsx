@@ -10,7 +10,7 @@ import { db } from "@/lib/firebase";
 import { 
   Menu, X, LayoutGrid, Plus, Wallet, ShieldCheck, 
   LayoutDashboard, ChevronDown, History as HistoryIcon, 
-  Info, HelpCircle, Mail, FileText, Eye, EyeOff, ShieldAlert, Bell 
+  Info, HelpCircle, Mail, FileText, Eye, EyeOff, ShieldAlert, Bell, Gift 
 } from "lucide-react";
 
 export default function Navbar() {
@@ -48,7 +48,7 @@ export default function Navbar() {
       where("uid", "==", user.uid),
       where("isRead", "==", false)
     );
-    
+
     const unsubNotifications = onSnapshot(q, (snapshot) => {
       setUnreadCount(snapshot.docs.length);
     });
@@ -65,6 +65,7 @@ export default function Navbar() {
     { href: "/feed", label: "Live Markets", icon: LayoutGrid, isProtected: false },
     { href: "/create", label: "Create Forecast", icon: Plus, isProtected: true },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, isProtected: true },
+    { href: "/referrals", label: "Refer & Earn", icon: Gift, isProtected: true },
     { href: "/history", label: "Match Ledger", icon: HistoryIcon, isProtected: true },
     { href: "/wallet", label: "Wallet", icon: Wallet, isProtected: true },
     ...(isAdmin ? [{ href: "/admin", label: "Admin Console", icon: ShieldAlert, isProtected: true }] : []),
@@ -130,6 +131,7 @@ export default function Navbar() {
                   {isAdmin && (
                     <Link href="/admin" className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-100"><ShieldAlert size={14} />Admin</Link>
                   )}
+                  <Link href="/referrals" className="hidden lg:flex px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">Referrals</Link>
                   <Link href="/history" className="hidden lg:flex px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">History</Link>
                   <Link href="/wallet" className="hidden lg:flex px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">Wallet</Link>
                   <Link href="/dashboard" className="flex items-center gap-1.5 bg-blue-600 text-white font-semibold text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm ml-1">

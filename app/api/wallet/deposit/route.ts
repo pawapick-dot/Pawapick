@@ -1,10 +1,10 @@
-// app/api/wallet/deposit/route.ts
 import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
 import { initiateCollection } from "@/lib/marzpay";
 import crypto from "crypto";
+import { getGlobalSettings } from "@/lib/settings";
 
 export async function POST(request: Request) {
   try {
@@ -14,8 +14,11 @@ export async function POST(request: Request) {
     const { amount, phoneNumber } = await request.json();
     const depositAmount = Number(amount);
 
-    if (!depositAmount || depositAmount < 500) {
-      return NextResponse.json({ error: "Minimum deposit is UGX 500" }, { status: 400 });
+    // Fetch dynamic settings
+    const settings = await getGlobalSettings();
+
+    if (!depositAmount || depositAmount < settings.minDeposit) {
+      return NextResponse.json({ error: `Minimum deposit is UGX ${settings.minDeposit.toLocaleString()}` }, { status: 400 });
     }
     if (!phoneNumber) {
       return NextResponse.json({ error: "Phone number is required" }, { status: 400 });
@@ -29,7 +32,6 @@ export async function POST(request: Request) {
     const transactionRef = db.collection("transactions").doc(reference);
 
     // 2. Log the raw deposit amount.
-    // This ensures they are only credited the exact amount they requested once approved.
     await transactionRef.set({
       id: reference,
       uid,
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
 
     // 3. Fire the custom collection request to MarzPay passing the total amount
     await initiateCollection({
-      amount: totalToCharge, // This will push the +5% value (e.g. 525) straight to their USSD popup
+      amount: totalToCharge,
       phoneNumber,
       reference,
       description: `Pawa Pick Top-up (Incl. processing)`,

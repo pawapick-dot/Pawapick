@@ -1,3 +1,4 @@
+// components/Footer.tsx
 "use client";
 
 import Link from "next/link";
@@ -8,23 +9,23 @@ export default function Footer() {
   const pathname = usePathname();
   const currentYear = new Date().getFullYear();
 
-  // Hide the footer entirely on Admin pages to give Admin Console full screen
+  // Hide the footer entirely on Admin pages
   if (pathname.startsWith("/admin")) return null;
 
   return (
     <footer className="bg-white border-t border-slate-200 pt-12 pb-8 mt-auto z-10 relative">
       <div className="max-w-7xl mx-auto px-4">
+        
+        {/* Responsive Grid: 2 columns on mobile, Flex/Justify-between on desktop */}
+        <div className="grid grid-cols-2 md:flex md:justify-between gap-10 md:gap-8">
 
-        {/* Main Grid: Stacks on mobile, expands to 4 columns on desktop */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-8">
-
-          {/* Brand & Motto */}
-          <div className="md:col-span-2 space-y-4">
+          {/* Brand & Motto - Spans full width on mobile (col-span-2), auto width on desktop */}
+          <div className="col-span-2 md:col-span-1 md:max-w-sm space-y-4">
             <Link href="/" className="font-extrabold text-2xl tracking-tight inline-block">
               <span className="text-slate-900">Pawa-</span>
               <span className="text-blue-600">Pick</span>
             </Link>
-            <p className="text-slate-500 font-medium max-w-sm leading-relaxed text-sm">
+            <p className="text-slate-500 font-medium leading-relaxed text-sm">
               The provably fair prediction network where players compete directly. No house edge, instant payouts, and cryptographic transparency.
             </p>
             <div className="pt-2">

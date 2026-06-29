@@ -1,11 +1,11 @@
-// app/api/wallet/withdraw/route.ts
 import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
 import { sendCustomEmail } from "@/lib/email";
 import { Templates } from "@/lib/email-templates";
-import crypto from "crypto"; // Native Node.js UUID generator
+import crypto from "crypto"; 
+import { getGlobalSettings } from "@/lib/settings";
 
 export async function POST(request: Request) {
   try {
@@ -15,15 +15,17 @@ export async function POST(request: Request) {
     const { amount, phoneNumber, provider } = await request.json();
     const withdrawAmount = Number(amount);
 
-    if (!withdrawAmount || withdrawAmount < 1000) {
-      return NextResponse.json({ error: "Minimum withdrawal is UGX 1,000" }, { status: 400 });
+    // Fetch dynamic settings
+    const settings = await getGlobalSettings();
+
+    if (!withdrawAmount || withdrawAmount < settings.minWithdrawal) {
+      return NextResponse.json({ error: `Minimum withdrawal is UGX ${settings.minWithdrawal.toLocaleString()}` }, { status: 400 });
     }
     if (!phoneNumber || !provider) {
       return NextResponse.json({ error: "Phone number and provider are required" }, { status: 400 });
     }
 
     const userRef = db.collection("users").doc(uid);
-    // 1. Generate UUID v4 instead of Firestore's default ID
     const withdrawalId = crypto.randomUUID();
     const withdrawalRef = db.collection("withdrawals").doc(withdrawalId);
     const transactionRef = db.collection("transactions").doc(withdrawalId);

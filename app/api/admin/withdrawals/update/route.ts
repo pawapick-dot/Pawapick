@@ -5,13 +5,13 @@ import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
 import { sendCustomEmail } from "@/lib/email";
 import { Templates } from "@/lib/email-templates";
-import { sendMoney } from "@/lib/marzpay"; // Import the MarzPay utility
+import { sendMoney } from "@/lib/marzpay"; 
 
 export async function POST(request: Request) {
   try {
     const uid = await verifyToken(request);
     if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    
+
     const adminDoc = await db.collection("users").doc(uid).get();
     if (adminDoc.data()?.role !== "admin") {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
@@ -24,11 +24,11 @@ export async function POST(request: Request) {
 
     const withdrawalRef = db.collection("withdrawals").doc(withdrawalId);
     const withdrawalDoc = await withdrawalRef.get();
-    
+
     if (!withdrawalDoc.exists) {
       return NextResponse.json({ error: "Withdrawal not found" }, { status: 404 });
     }
-    
+
     const withdrawalData = withdrawalDoc.data()!;
     if (withdrawalData.status !== "pending") {
       return NextResponse.json({ error: `Withdrawal is already ${withdrawalData.status}` }, { status: 400 });
@@ -38,9 +38,9 @@ export async function POST(request: Request) {
     if (action === "approve") {
       try {
         await sendMoney({
-          amount: withdrawalData.amount,
+          amount: withdrawalData.amount, // MarzPay only receives the clean payout amount
           phoneNumber: withdrawalData.phoneNumber,
-          reference: withdrawalId, // This is now a valid UUID from our updated request route
+          reference: withdrawalId, 
           description: "Pawa Pick Withdrawal",
         });
       } catch (marzErr: any) {
@@ -53,9 +53,7 @@ export async function POST(request: Request) {
       const userRef = db.collection("users").doc(withdrawalData.userId);
       const userDoc = await transaction.get(userRef);
       const userData = userDoc.data() || {};
-      
-      // If approved, we mark as processing (MarzPay webhook will mark as completed)
-      // If rejected, we mark as rejected.
+
       const newStatus = action === "approve" ? "processing" : "rejected";
       const timestamp = admin.firestore.FieldValue.serverTimestamp();
 
@@ -76,7 +74,11 @@ export async function POST(request: Request) {
 
       if (action === "reject") {
         const currentBalance = userData.walletBalance || 0;
-        const refundedBalance = currentBalance + withdrawalData.amount;
+        
+        // Dynamic refund: returns the full amount + fee seamlessly
+        const totalRefundAmount = withdrawalData.totalDeducted || (withdrawalData.amount + 500);
+        const refundedBalance = currentBalance + totalRefundAmount;
+        
         transaction.set(userRef, { walletBalance: refundedBalance }, { merge: true });
 
         const refundTxRef = db.collection("transactions").doc();
@@ -84,7 +86,7 @@ export async function POST(request: Request) {
           id: refundTxRef.id,
           uid: withdrawalData.userId,
           type: "withdrawal_refund",
-          amount: withdrawalData.amount,
+          amount: totalRefundAmount,
           status: "completed",
           createdAt: timestamp
         });

@@ -2,6 +2,7 @@
 import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
+import * as admin from "firebase-admin";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -20,11 +21,12 @@ export async function GET(request: Request) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 2. Fetch Aggregated Data
-    // (Using standard .get().size for max compatibility with all Firebase versions)
-    const usersSnap = await db.collection("users").get();
-    const totalUsers = usersSnap.size;
+    // 2. Fetch Users Directly from Firebase Authentication
+    // (This ensures we get their emails, display names, and phone numbers even if not in Firestore)
+    const listUsersResult = await admin.auth().listUsers(1000); // Adjust limit if you have >1000 users
+    const totalUsers = listUsersResult.users.length;
 
+    // 3. Fetch Game & Transaction Aggregates from Firestore
     const activeGamesSnap = await db.collection("games").where("status", "==", "open").get();
     const activeChallenges = activeGamesSnap.size;
 
@@ -39,7 +41,7 @@ export async function GET(request: Request) {
     completedGamesSnap.forEach((doc) => {
       const game = doc.data();
       const resolvedAt = new Date(game.resolvedAt || game.createdAt);
-      
+
       // Calculate today's stats
       if (resolvedAt >= today) {
         completedToday++;
@@ -60,18 +62,28 @@ export async function GET(request: Request) {
     const pendingWithdrawalsSnap = await db.collection("withdrawals").where("status", "==", "pending").get();
     const pendingWithdrawals = pendingWithdrawalsSnap.size;
 
-    // Optional: Add recent users to activity
-    usersSnap.docs.slice(-5).forEach(doc => {
+    // 4. Sort Auth Users by Creation Time (Newest First)
+    const sortedAuthUsers = listUsersResult.users.sort((a, b) => {
+      const dateA = new Date(a.metadata.creationTime || 0).getTime();
+      const dateB = new Date(b.metadata.creationTime || 0).getTime();
+      return dateB - dateA;
+    });
+
+    // Add the 5 most recent Auth users to activity
+    sortedAuthUsers.slice(0, 5).forEach((userRecord) => {
+      // Fallback chain: Display Name -> Email -> Phone -> "Player"
+      const identifier = userRecord.displayName || userRecord.email || userRecord.phoneNumber || "Player";
+      
       recentActivity.push({
-        id: doc.id,
+        id: userRecord.uid,
         type: "new_user",
-        label: `New User: ${doc.data().displayName || doc.data().phoneNumber}`,
+        label: `New User: ${identifier}`,
         amount: 0,
-        date: doc.data().createdAt || new Date().toISOString(),
+        date: userRecord.metadata.creationTime || new Date().toISOString(),
       });
     });
 
-    // Sort recent activity (Newest first)
+    // 5. Sort combined recent activity (Newest first)
     recentActivity.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return NextResponse.json({

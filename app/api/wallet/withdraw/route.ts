@@ -1,3 +1,4 @@
+// app/api/wallet/withdraw/route.ts
 import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
@@ -25,6 +26,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Phone number and provider are required" }, { status: 400 });
     }
 
+    const WITHDRAWAL_FEE = 500;
+    const totalDeduction = withdrawAmount + WITHDRAWAL_FEE;
+
     const userRef = db.collection("users").doc(uid);
     const withdrawalId = crypto.randomUUID();
     const withdrawalRef = db.collection("withdrawals").doc(withdrawalId);
@@ -37,11 +41,12 @@ export async function POST(request: Request) {
       const userData = userDoc.data()!;
       const currentBalance = userData.walletBalance || 0;
 
-      if (currentBalance < withdrawAmount) {
-        throw new Error("Insufficient funds for this withdrawal");
+      // Restrict user if their balance can't cover both the amount and the 500 UGX cost
+      if (currentBalance < totalDeduction) {
+        throw new Error(`Insufficient funds. You need at least ${totalDeduction.toLocaleString()} UGX (including the 500 UGX network fee) to withdraw ${withdrawAmount.toLocaleString()} UGX.`);
       }
 
-      const newBalance = currentBalance - withdrawAmount;
+      const newBalance = currentBalance - totalDeduction;
       const timestamp = admin.firestore.FieldValue.serverTimestamp();
 
       transaction.set(userRef, { walletBalance: newBalance }, { merge: true });
@@ -49,7 +54,9 @@ export async function POST(request: Request) {
       transaction.set(withdrawalRef, {
         id: withdrawalId,
         userId: uid,
-        amount: withdrawAmount,
+        amount: withdrawAmount, // Raw amount sent to MarzPay
+        fee: WITHDRAWAL_FEE,
+        totalDeducted: totalDeduction,
         phoneNumber,
         provider,
         status: "pending",
@@ -60,7 +67,7 @@ export async function POST(request: Request) {
         id: withdrawalId,
         uid,
         type: "withdrawal_request",
-        amount: -withdrawAmount,
+        amount: -totalDeduction, // Deduct the full amount from their ledger log
         status: "pending",
         createdAt: timestamp
       });

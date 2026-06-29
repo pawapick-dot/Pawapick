@@ -325,12 +325,13 @@ export default function PlayGame({ params }: { params: { gameId: string } }) {
                 {isWon ? "You Won!" : "Better Luck Next Time"}
               </h1>
 
-              <div className={`py-4 rounded-2xl ${isWon ? "bg-emerald-100/50" : "bg-slate-100"}`}>
-                <p className={`text-3xl font-black ${isWon ? "text-emerald-600" : "text-slate-500"}`}>
-                  {isWon ? "+" : "-"}{game.stakeAmount.toLocaleString()} UGX
-                </p>
-                {isWon && <p className="text-sm font-semibold text-emerald-700 mt-2">Wallet Updated</p>}
-              </div>
+             <div className={`py-4 rounded-2xl ${isWon ? "bg-emerald-100/50" : "bg-slate-100"}`}>
+  <p className={`text-3xl font-black ${isWon ? "text-emerald-600" : "text-slate-500"}`}>
+    {/* If they win, show the total payout from the API. If they lose, show the stake they lost. */}
+    {isWon ? "+" : "-"}{(isWon ? result?.payout : game.stakeAmount).toLocaleString()} UGX
+  </p>
+  {isWon && <p className="text-sm font-semibold text-emerald-700 mt-2">Wallet Updated</p>}
+</div>
 
               <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm mb-8 text-sm font-medium text-slate-600 flex justify-between items-center">
                 <span>Creator's choice was:</span>

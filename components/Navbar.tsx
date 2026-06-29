@@ -5,18 +5,19 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase"; // Ensure this points to your client firebase config
+import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase"; 
 import { 
   Menu, X, LayoutGrid, Plus, Wallet, ShieldCheck, 
   LayoutDashboard, ChevronDown, History as HistoryIcon, 
-  Info, HelpCircle, Mail, FileText, Eye, EyeOff, ShieldAlert 
+  Info, HelpCircle, Mail, FileText, Eye, EyeOff, ShieldAlert, Bell 
 } from "lucide-react";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [showBalance, setShowBalance] = useState(false);
   const [realTimeBalance, setRealTimeBalance] = useState<number>(0);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const pathname = usePathname();
 
   const auth = useAuth() as any;
@@ -29,19 +30,33 @@ export default function Navbar() {
     closeMenu();
   }, [pathname]);
 
-  // REAL-TIME BALANCE LISTENER
+  // REAL-TIME LISTENERS (Wallet & Notifications)
   useEffect(() => {
     if (!user) return;
-    
-    // Listen directly to the user's document for instant wallet updates
-    const unsubscribe = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+
+    // 1. Wallet Balance Listener
+    const unsubWallet = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setRealTimeBalance(data.walletBalance || 0);
       }
     });
 
-    return () => unsubscribe();
+    // 2. Unread Notifications Listener
+    const q = query(
+      collection(db, "notifications"),
+      where("uid", "==", user.uid),
+      where("isRead", "==", false)
+    );
+    
+    const unsubNotifications = onSnapshot(q, (snapshot) => {
+      setUnreadCount(snapshot.docs.length);
+    });
+
+    return () => {
+      unsubWallet();
+      unsubNotifications();
+    };
   }, [user]);
 
   if (pathname.startsWith("/admin")) return null;
@@ -82,7 +97,6 @@ export default function Navbar() {
                 ) : (
                   <button onClick={openAuthModal} className="px-2.5 py-1 text-xs md:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">Create</button>
                 )}
-                {/* Resources Dropdown */}
                 <div className="relative group">
                   <button className="flex items-center gap-1 px-2.5 py-1 text-xs md:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
                     Resources <ChevronDown size={14} className="text-slate-400 group-hover:rotate-180 transition-transform duration-200" />
@@ -101,23 +115,32 @@ export default function Navbar() {
             </div>
 
             {/* RIGHT: Login & Protected Actions */}
-            <div>
+            <div className="flex items-center gap-1.5 md:gap-2">
               {user ? (
-                <div className="flex items-center gap-1">
+                <>
+                  <Link href="/notifications" className="relative p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-full transition-colors mr-1">
+                    <Bell size={18} />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0 right-0 h-3.5 w-3.5 bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full border border-white">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+
                   {isAdmin && (
-                    <Link href="/admin" className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors mr-1 border border-rose-100"><ShieldAlert size={14} />Admin</Link>
+                    <Link href="/admin" className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-100"><ShieldAlert size={14} />Admin</Link>
                   )}
                   <Link href="/history" className="hidden lg:flex px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">History</Link>
-                  <Link href="/wallet" className="hidden lg:flex px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors mr-2">Wallet</Link>
-                  <Link href="/dashboard" className="flex items-center gap-1.5 bg-blue-600 text-white font-semibold text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                  <Link href="/wallet" className="hidden lg:flex px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">Wallet</Link>
+                  <Link href="/dashboard" className="flex items-center gap-1.5 bg-blue-600 text-white font-semibold text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm ml-1">
                     <LayoutDashboard size={14} /><span className="hidden sm:inline">Dashboard</span>
                   </Link>
-                </div>
+                </>
               ) : (
-                <div className="flex items-center gap-1.5">
+                <>
                   <button onClick={openAuthModal} className="text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-semibold text-xs px-2.5 py-1.5 rounded-lg transition-colors">Login</button>
                   <button onClick={openAuthModal} className="bg-slate-900 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm active:scale-95">Register</button>
-                </div>
+                </>
               )}
             </div>
           </div>
@@ -141,13 +164,8 @@ export default function Navbar() {
                   {showBalance ? <Eye size={14} /> : <EyeOff size={14} />}
                 </button>
                 <span className="text-xs md:text-sm font-extrabold text-slate-900 mr-2 tracking-tight">
-                  {/* LIVE BALANCE INJECTED HERE */}
                   {showBalance ? `${realTimeBalance.toLocaleString()} UGX` : "UGX ****"}
                 </span>
-                {/* 
-                  CHANGED: This link now passes ?action=deposit so the Wallet page 
-                  knows to open the modal immediately. 
-                */}
                 <Link 
                   href="/wallet?action=deposit" 
                   className="bg-emerald-500 text-white p-1 rounded-full hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center"
@@ -190,12 +208,6 @@ export default function Navbar() {
               </div>
             );
           })}
-        </div>
-        <div className="p-4 bg-slate-50 border-t border-slate-200">
-          <div className="flex items-center justify-center gap-2 text-slate-500">
-            <ShieldCheck size={16} className="text-emerald-500" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Secured by Escrow</span>
-          </div>
         </div>
       </div>
     </>

@@ -3,8 +3,9 @@ import { Toaster } from "sonner";
 import { Metadata, Viewport } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import BottomNav from "@/components/BottomNav"; // <-- Added
+import BottomNav from "@/components/BottomNav"; 
 import AuthModal from "@/components/AuthModal";
+import UserSync from "@/components/UserSync"; // <-- Added for Phase 1 Referral Tracking
 import { AuthProvider } from "@/context/AuthContext";
 import "./globals.css";
 
@@ -51,13 +52,16 @@ export default function RootLayout({
     <html lang="en">
       <body className="flex flex-col min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900 pb-safe">
         <AuthProvider>
+          {/* Global Referral & Profile Sync */}
+          <UserSync />
+          
           {/* Global Authentication Modal */}
           <AuthModal />
 
-          {/* Persistent Navbar (Hidden on mobile when BottomNav is active depending on your preference, but usually both exist) */}
+          {/* Persistent Navbar */}
           <Navbar />
 
-          {/* Main content wrapper. Note the pb-24 on mobile to prevent content hiding behind the BottomNav */}
+          {/* Main content wrapper */}
           <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:pb-6 pb-24">
             {children}
           </main>

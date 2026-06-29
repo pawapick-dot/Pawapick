@@ -9,14 +9,12 @@ export async function POST(request: Request) {
   try {
     const payload = await request.json();
 
-    // MarzPay payload structure
     const { event_type, transaction: marzTx, collection, disbursement } = payload;
 
     if (!marzTx || !marzTx.reference) {
       return NextResponse.json({ error: "Invalid payload: Missing reference" }, { status: 400 });
     }
 
-    // The 'reference' is our Firestore Document ID that we generated when creating the request
     const internalRefId = marzTx.reference;
     const txRef = db.collection("transactions").doc(internalRefId);
 
@@ -27,19 +25,17 @@ export async function POST(request: Request) {
       const txDoc = await transaction.get(txRef);
 
       if (!txDoc.exists) {
-        console.warn(`Webhook ignored: Transaction ${internalRefId} not found in database.`);
-        return; // Exit gracefully
+        console.warn(`Webhook ignored: Transaction ${internalRefId} not found.`);
+        return; 
       }
 
       const txData = txDoc.data()!;
 
-      // 1. Idempotency Check: If already processed, do nothing and just return 200
       if (txData.status === "completed" || txData.status === "failed") {
-        console.log(`Webhook ignored: Transaction ${internalRefId} is already ${txData.status}.`);
         return; 
       }
 
-      // 2. Handle Deposit (Collection) SUCCESS
+      // 1. Handle Deposit (Collection) SUCCESS
       if (event_type === "collection.completed" && txData.type === "deposit") {
         const userRef = db.collection("users").doc(txData.uid);
         const userDoc = await transaction.get(userRef);
@@ -59,17 +55,63 @@ export async function POST(request: Request) {
             resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-          // Create Notification Document
+          // Create Deposit Notification
           transaction.set(db.collection("notifications").doc(), {
             uid: txData.uid,
             title: "Wallet Top-up Complete",
-            message: `Your deposit of ${txData.amount.toLocaleString()} UGX has been successfully credited to your wallet.`,
+            message: `Your deposit of ${txData.amount.toLocaleString()} UGX has been successfully credited.`,
             type: "deposit",
             isRead: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
           });
 
-          // Extract data to send email outside of the Firestore lock
+          // ==========================================
+          // PHASE 2: REFERRAL BONUS TRIGGER LOGIC
+          // ==========================================
+          // Check if user was referred, hasn't triggered a bonus yet, and deposited 1000+ UGX
+          if (userData.referredBy && !userData.referralBonusPaid && txData.amount >= 1000) {
+            
+            // Query for the referrer using their unique code
+            const referrerQuery = await transaction.get(
+              db.collection("users").where("referralCode", "==", userData.referredBy).limit(1)
+            );
+            
+            if (!referrerQuery.empty) {
+              const referrerDoc = referrerQuery.docs[0];
+              const referrerRef = referrerDoc.ref;
+              const referrerData = referrerDoc.data();
+              
+              const newReferrerBalance = (referrerData.walletBalance || 0) + 200;
+              
+              // Credit the referrer
+              transaction.set(referrerRef, { walletBalance: newReferrerBalance }, { merge: true });
+              
+              // Mark the new user so they can't trigger another bonus
+              transaction.set(userRef, { referralBonusPaid: true }, { merge: true });
+
+              // Write to the immutable ledger
+              transaction.set(db.collection("transactions").doc(), {
+                uid: referrerDoc.id,
+                type: "referral_bonus",
+                amount: 200,
+                status: "completed",
+                referredUser: userData.displayName || "A friend",
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+
+              // Send a notification to the referrer
+              transaction.set(db.collection("notifications").doc(), {
+                uid: referrerDoc.id,
+                title: "Referral Bonus Unlocked! 🎉",
+                message: `Your friend ${userData.displayName || "Player"} made a qualifying deposit. 200 UGX has been added to your wallet!`,
+                type: "system",
+                isRead: false,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+            }
+          }
+          // ==========================================
+
           emailData = {
             type: "deposit_success",
             email: userData.email,
@@ -80,7 +122,7 @@ export async function POST(request: Request) {
         }
       }
 
-      // 3. Handle Deposit (Collection) FAILED
+      // 2. Handle Deposit (Collection) FAILED
       if (event_type === "collection.failed" && txData.type === "deposit") {
         transaction.update(txRef, {
           status: "failed",
@@ -88,7 +130,6 @@ export async function POST(request: Request) {
           resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         
-        // Optional: Notify user of failed deposit
         transaction.set(db.collection("notifications").doc(), {
           uid: txData.uid,
           title: "Deposit Failed",
@@ -98,12 +139,9 @@ export async function POST(request: Request) {
           createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
       }
-
-      // Note: You can add logic here for 'disbursement.completed' and 'disbursement.failed' 
-      // if you move admin approvals to asynchronous background jobs.
     });
 
-    // 4. Trigger Brevo Email (Asynchronous)
+    // Trigger Brevo Email (Asynchronous)
     if (emailData && emailData.email) {
       if (emailData.type === "deposit_success") {
         sendCustomEmail({
@@ -114,16 +152,14 @@ export async function POST(request: Request) {
             emailData.amount.toLocaleString(), 
             emailData.newBalance.toLocaleString()
           )
-        }).catch((err) => console.error("Failed to send webhook deposit email:", err));
+        }).catch(console.error);
       }
     }
 
-    // Always return 200 OK so MarzPay knows we received it and doesn't retry
     return NextResponse.json({ received: true });
 
   } catch (error: any) {
     console.error("MarzPay Webhook Processing Error:", error);
-    // Return 500 so MarzPay knows to retry the webhook later
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -1,11 +1,12 @@
 // app/layout.tsx
+import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { Metadata, Viewport } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav"; 
 import AuthModal from "@/components/AuthModal";
-import UserSync from "@/components/UserSync"; // <-- Added for Phase 1 Referral Tracking
+import UserSync from "@/components/UserSync"; 
 import { AuthProvider } from "@/context/AuthContext";
 import "./globals.css";
 
@@ -52,9 +53,11 @@ export default function RootLayout({
     <html lang="en">
       <body className="flex flex-col min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900 pb-safe">
         <AuthProvider>
-          {/* Global Referral & Profile Sync */}
-          <UserSync />
-          
+          {/* Global Referral & Profile Sync wrapped in Suspense to fix build errors */}
+          <Suspense fallback={null}>
+            <UserSync />
+          </Suspense>
+
           {/* Global Authentication Modal */}
           <AuthModal />
 

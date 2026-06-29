@@ -47,7 +47,7 @@ export default function AdminUsers() {
           <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Player Management</h1>
           <p className="text-sm text-slate-500 font-medium mt-1">Total Registered: {usersList.length}</p>
         </div>
-        
+
         <div className="relative w-full sm:w-72">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
             <Search size={18} />

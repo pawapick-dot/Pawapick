@@ -1,3 +1,4 @@
+// app/api/games/resolve/route.ts
 import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
@@ -56,25 +57,46 @@ export async function POST(request: Request) {
         newCreatorBalance += payout;
       }
 
+      // Update Balances
       transaction.set(challengerRef, { walletBalance: newChallengerBalance }, { merge: true });
       transaction.set(creatorRef, { walletBalance: newCreatorBalance }, { merge: true });
 
       const timestamp = admin.firestore.FieldValue.serverTimestamp();
+      const formattedGameType = game.gameType?.replace("_", " ") || "Match";
 
+      // Log Ledger Transactions
       transaction.set(db.collection("transactions").doc(), {
         uid, type: "stake_deduction", amount: -game.stakeAmount, status: "Completed", createdAt: timestamp
       });
 
-      if (isChallengerWin) {
-        transaction.set(db.collection("transactions").doc(), {
-          uid, type: "game_win", amount: payout, status: "Completed", createdAt: timestamp
-        });
-      } else {
-        transaction.set(db.collection("transactions").doc(), {
-          uid: game.creatorId, type: "game_win", amount: payout, status: "Completed", createdAt: timestamp
-        });
-      }
+      const winnerUid = isChallengerWin ? uid : game.creatorId;
+      const loserUid = isChallengerWin ? game.creatorId : uid;
 
+      transaction.set(db.collection("transactions").doc(), {
+        uid: winnerUid, type: "game_win", amount: payout, status: "Completed", createdAt: timestamp
+      });
+
+      // Write WINNER Notification
+      transaction.set(db.collection("notifications").doc(), {
+        uid: winnerUid,
+        title: "Match Won! 🏆",
+        message: `You won a ${formattedGameType} match! Your payout of ${payout.toLocaleString()} UGX has been added to your wallet.`,
+        type: "game_win",
+        isRead: false,
+        createdAt: timestamp
+      });
+
+      // Write LOSER Notification
+      transaction.set(db.collection("notifications").doc(), {
+        uid: loserUid,
+        title: "Match Lost",
+        message: `You lost a ${formattedGameType} match for ${game.stakeAmount.toLocaleString()} UGX. Better luck next time!`,
+        type: "game_loss",
+        isRead: false,
+        createdAt: timestamp
+      });
+
+      // Close the Match
       transaction.update(gameRef, {
         status: "played",
         playerBId: uid,
@@ -100,6 +122,9 @@ export async function POST(request: Request) {
       };
     });
 
+    // -----------------------------------------------------
+    // ASYNCHRONOUS ACTIONS (Emails)
+    // -----------------------------------------------------
     const winner = transactionResult.isChallengerWin ? transactionResult.challenger : transactionResult.creator;
     const loser = transactionResult.isChallengerWin ? transactionResult.creator : transactionResult.challenger;
     const verifyLink = `https://pawapick.com/verify/${gameId}`;

@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Copy, Share2, Users, Trophy, Loader2, Gift, ChevronRight } from "lucide-react";
+import { Copy, Share2, Users, Trophy, Loader2, Gift, ChevronRight ,CheckCircle2 } from "lucide-react";
 
 export default function ReferralsPage() {
   const { user, loading: authLoading, openAuthModal } = useAuth();

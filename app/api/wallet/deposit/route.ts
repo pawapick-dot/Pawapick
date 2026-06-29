@@ -4,7 +4,7 @@ import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
 import * as admin from "firebase-admin";
 import { initiateCollection } from "@/lib/marzpay";
-import crypto from "crypto"; // Native Node.js UUID generator
+import crypto from "crypto";
 
 export async function POST(request: Request) {
   try {
@@ -21,29 +21,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Phone number is required" }, { status: 400 });
     }
 
-    // 1. Generate a strict UUID v4 for MarzPay
+    // 1. Calculate the 5% payment processing fee to charge via MarzPay
+    const fee = Math.round(depositAmount * 0.05);
+    const totalToCharge = depositAmount + fee;
+
     const reference = crypto.randomUUID();
     const transactionRef = db.collection("transactions").doc(reference);
 
-    // 2. Save the pending transaction FIRST
-    // We do NOT update the user's wallet balance yet. The webhook will do that upon success.
+    // 2. Log the raw deposit amount.
+    // This ensures they are only credited the exact amount they requested once approved.
     await transactionRef.set({
       id: reference,
       uid,
       type: "deposit",
-      amount: depositAmount,
+      amount: depositAmount, 
+      processingFeeCharged: fee,
       status: "pending", 
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       method: "mobile_money",
       phoneNumber
     });
 
-    // 3. Trigger MarzPay API (pushes USSD to phone)
+    // 3. Fire the custom collection request to MarzPay passing the total amount
     await initiateCollection({
-      amount: depositAmount,
+      amount: totalToCharge, // This will push the +5% value (e.g. 525) straight to their USSD popup
       phoneNumber,
       reference,
-      description: "Pawa Pick Wallet Top-up",
+      description: `Pawa Pick Top-up (Incl. processing)`,
     });
 
     return NextResponse.json({ 

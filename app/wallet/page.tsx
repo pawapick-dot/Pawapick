@@ -78,10 +78,11 @@ function WalletContent() {
     return cleaned;
   };
 
-  // 5% processing fee calculation helpers
+  // Processing Fee & Withdrawal Fee Calculation Engine
   const rawAmount = Number(amount) || 0;
   const processingFee = actionType === "deposit" ? Math.round(rawAmount * 0.05) : 0;
-  const totalCharge = rawAmount + processingFee;
+  const withdrawalFee = actionType === "withdraw" ? 500 : 0;
+  const totalCharge = actionType === "deposit" ? rawAmount + processingFee : rawAmount + withdrawalFee;
 
   const handleTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +90,12 @@ function WalletContent() {
     
     if (actionType === "deposit" && rawAmount < 500) return toast.error("Minimum deposit is UGX 500.");
     if (actionType === "withdraw" && rawAmount < 1000) return toast.error("Minimum withdrawal is UGX 1,000.");
-    if (actionType === "withdraw" && rawAmount > balance) return toast.error("Insufficient funds.");
+    
+    // Catch insufficient funds early on the client
+    if (actionType === "withdraw" && totalCharge > balance) {
+      return toast.error(`Insufficient funds. You need at least ${totalCharge.toLocaleString()} UGX (including the 500 UGX fee) to withdraw ${rawAmount.toLocaleString()} UGX.`);
+    }
+    
     if (!phone || phone.length < 9) return toast.error("Please enter a valid phone number.");
 
     setIsProcessing(true);
@@ -161,9 +167,8 @@ function WalletContent() {
 
   return (
     <div className="max-w-md mx-auto space-y-6 mt-6 pb-12 px-4 relative">
-      {/* Modern Wallet Balance Card */}
+      {/* Balance Display */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[2rem] p-8 relative overflow-hidden shadow-xl shadow-slate-900/10 border border-slate-800">
-        {/* Subtle background glow effect */}
         <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-blue-500/20 blur-2xl"></div>
         <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-32 h-32 rounded-full bg-emerald-500/20 blur-2xl"></div>
         
@@ -181,7 +186,7 @@ function WalletContent() {
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action triggers */}
       <div className="grid grid-cols-2 gap-4">
         <button 
           onClick={() => setActionType("deposit")} 
@@ -204,7 +209,7 @@ function WalletContent() {
         </button>
       </div>
 
-      {/* Ledger UI */}
+      {/* Ledger Log */}
       <div className="bg-white border border-slate-100 rounded-[2rem] shadow-sm overflow-hidden mt-6">
         <div className="flex items-center gap-2 p-6 border-b border-slate-50 bg-slate-50/50">
           <History size={18} className="text-slate-400" />
@@ -252,7 +257,7 @@ function WalletContent() {
         </div>
       </div>
 
-      {/* Transaction Modal Overlay with Glass Mask */}
+      {/* Transaction Overlay Modal */}
       {actionType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
           <div className="bg-white p-6 sm:p-8 w-full max-w-sm rounded-[2rem] shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
@@ -289,11 +294,19 @@ function WalletContent() {
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">UGX</span>
                 </div>
                 
-                {/* Dynamically display processing fee breakdown for deposits */}
+                {/* Deposit breakdown */}
                 {actionType === "deposit" && rawAmount >= 500 && (
                   <div className="flex justify-between px-1 pt-1.5 text-xs font-semibold text-slate-500">
                     <span>Processing Fee (5%):</span>
                     <span className="text-slate-900">+ {processingFee.toLocaleString()} UGX</span>
+                  </div>
+                )}
+
+                {/* Withdrawal breakdown */}
+                {actionType === "withdraw" && rawAmount >= 1000 && (
+                  <div className="flex justify-between px-1 pt-1.5 text-xs font-semibold text-slate-500">
+                    <span>Network Processing Fee:</span>
+                    <span className="text-slate-900">+ 500 UGX</span>
                   </div>
                 )}
               </div>
@@ -339,7 +352,7 @@ function WalletContent() {
                   className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-bold text-sm py-4 rounded-xl hover:bg-blue-700 shadow-sm transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isProcessing && <Loader2 size={18} className="animate-spin" />}
-                  {isProcessing ? "Processing..." : actionType === "deposit" ? `Pay ${totalCharge.toLocaleString()} UGX` : "Confirm Withdrawal"}
+                  {isProcessing ? "Processing..." : actionType === "deposit" ? `Pay ${totalCharge.toLocaleString()} UGX` : `Withdraw ${totalCharge.toLocaleString()} UGX`}
                 </button>
               </div>
 

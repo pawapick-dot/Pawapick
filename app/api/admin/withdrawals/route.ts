@@ -3,7 +3,7 @@ import { db } from "@/lib/firebase-admin";
 import { verifyToken } from "@/lib/verify-token";
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic"; // Ensure this route is never statically cached
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
@@ -16,29 +16,35 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
-    // 2. Fetch pending withdrawals
+    // 2. Fetch ALL withdrawals sorted by date (Requires NO manual composite index)
     const snapshot = await db.collection("withdrawals")
-      .where("status", "==", "pending")
       .orderBy("createdAt", "desc")
       .get();
 
-    // 3. Attach user details to each withdrawal request
+    // 3. Attach user details and safely parse dates
     const withdrawals = await Promise.all(snapshot.docs.map(async (doc) => {
       const data = doc.data();
-      
-      // Fetch the associated user to get their current display name
-      const userDoc = await db.collection("users").doc(data.userId).get();
-      const userData = userDoc.data() || {};
+
+      let userData: any = {};
+      if (data.userId) {
+        const userDoc = await db.collection("users").doc(data.userId).get();
+        userData = userDoc.data() || {};
+      }
+
+      // Secure date parsing to prevent .toDate() crashes
+      const rawDate = data.createdAt;
+      const txDate = rawDate && typeof rawDate.toDate === 'function' 
+        ? rawDate.toDate() 
+        : new Date(rawDate || 0);
 
       return {
         id: doc.id,
-        amount: data.amount,
-        phone: data.phoneNumber,
-        network: data.provider,
-        status: data.status,
-        userName: userData.displayName || "Unknown Player",
-        // Convert Firestore Timestamp to standard ISO string for the frontend
-        createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString()
+        amount: data.amount || 0,
+        phone: data.phoneNumber || "N/A",
+        network: data.provider || "N/A",
+        status: data.status || "pending",
+        userName: userData.displayName || userData.phoneNumber || "Unknown Player",
+        createdAt: txDate.toISOString()
       };
     }));
 

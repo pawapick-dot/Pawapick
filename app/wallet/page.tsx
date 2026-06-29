@@ -17,10 +17,9 @@ type Transaction = {
   status: string;
 };
 
-// We wrap the main content in a component so we can safely use useSearchParams in Next.js
 function WalletContent() {
   const { user, loading: authLoading, openAuthModal } = useAuth();
-  const searchParams = useSearchParams(); // Reads the URL parameters
+  const searchParams = useSearchParams(); 
   
   const [balance, setBalance] = useState<number>(0);
   const [history, setHistory] = useState<Transaction[]>([]);
@@ -33,14 +32,12 @@ function WalletContent() {
   const [provider, setProvider] = useState<"MTN" | "AIRTEL">("MTN");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  // 1. Auto-open modal if triggered from Navbar
   useEffect(() => {
     if (searchParams.get("action") === "deposit") {
       setActionType("deposit");
     }
   }, [searchParams]);
 
-  // 2. Real-time Balance Listener (Keeps the big number constantly updated)
   useEffect(() => {
     if (!user) return;
     const unsubscribe = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
@@ -51,7 +48,6 @@ function WalletContent() {
     return () => unsubscribe();
   }, [user]);
 
-  // 3. Fetch Transaction History (Runs once on load, and manually after transactions)
   const fetchHistory = useCallback(async () => {
     if (!user) return;
     try {
@@ -82,14 +78,18 @@ function WalletContent() {
     return cleaned;
   };
 
+  // 5% processing fee calculation helpers
+  const rawAmount = Number(amount) || 0;
+  const processingFee = actionType === "deposit" ? Math.round(rawAmount * 0.05) : 0;
+  const totalCharge = rawAmount + processingFee;
+
   const handleTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return openAuthModal();
     
-    const numAmount = Number(amount);
-    if (actionType === "deposit" && numAmount < 500) return toast.error("Minimum deposit is UGX 500.");
-    if (actionType === "withdraw" && numAmount < 1000) return toast.error("Minimum withdrawal is UGX 1,000.");
-    if (actionType === "withdraw" && numAmount > balance) return toast.error("Insufficient funds.");
+    if (actionType === "deposit" && rawAmount < 500) return toast.error("Minimum deposit is UGX 500.");
+    if (actionType === "withdraw" && rawAmount < 1000) return toast.error("Minimum withdrawal is UGX 1,000.");
+    if (actionType === "withdraw" && rawAmount > balance) return toast.error("Insufficient funds.");
     if (!phone || phone.length < 9) return toast.error("Please enter a valid phone number.");
 
     setIsProcessing(true);
@@ -98,7 +98,7 @@ function WalletContent() {
 
     try {
       const token = await user.getIdToken();
-      const payload: any = { amount: numAmount, phoneNumber: formattedPhone };
+      const payload: any = { amount: rawAmount, phoneNumber: formattedPhone };
       if (actionType === "withdraw") payload.provider = provider;
 
       const res = await fetch(endpoint, {
@@ -114,7 +114,7 @@ function WalletContent() {
       if (!res.ok) throw new Error(data.error || "Transaction failed");
 
       if (actionType === "deposit") {
-        toast.success("Prompt sent! Check your phone to enter your PIN.", { duration: 5000 });
+        toast.success(`Prompt sent for UGX ${totalCharge.toLocaleString()}! Check your phone.`);
       } else {
         toast.success("Withdrawal requested successfully!");
       }
@@ -183,7 +183,7 @@ function WalletContent() {
         </button>
       </div>
 
-      {/* Wallet Activity Ledger */}
+      {/* Ledger UI */}
       <div className="bg-white border-2 border-gray-100 rounded-none mt-8">
         <div className="flex items-center gap-2 p-5 border-b-2 border-gray-100 bg-gray-50">
           <History size={18} className="text-black" />
@@ -234,6 +234,14 @@ function WalletContent() {
                   placeholder={actionType === "deposit" ? "Min. 500" : "Min. 1000"} required
                   className="w-full bg-gray-50 border-2 border-gray-200 p-4 font-black text-xl text-gray-900 focus:outline-none focus:border-yellow-400 focus:bg-white transition"
                 />
+                
+                {/* Dynamically display processing fee breakdown for deposits */}
+                {actionType === "deposit" && rawAmount >= 500 && (
+                  <div className="flex justify-between px-1 pt-1 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                    <span>Processing Fee:</span>
+                    <span className="text-gray-900">+ UGX {processingFee.toLocaleString()}</span>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Mobile Money Number</label>
@@ -253,7 +261,7 @@ function WalletContent() {
                 </div>
               )}
               <button type="submit" disabled={isProcessing} className="w-full bg-black text-white font-black uppercase tracking-widest text-sm p-4 border-2 border-black hover:bg-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed mt-4">
-                {isProcessing ? "Processing..." : "Confirm Transaction"}
+                {isProcessing ? "Processing..." : actionType === "deposit" ? `Pay UGX ${totalCharge.toLocaleString()}` : "Confirm Withdrawal"}
               </button>
             </form>
           </div>
